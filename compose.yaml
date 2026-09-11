@@ -1,0 +1,28 @@
+name: pharma-intel
+
+services:
+  db:
+    # Exact official image downloaded and reported by the user.
+    image: postgres@sha256:4ef4dbc939d61acea57712655ddb4b4ab27419c913f94cca0cd57cb3ea3c2280
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_DB: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_ADMIN_PASSWORD:?Run python scripts/configure_local_database.py first}
+      APP_DB_NAME: pharma_intel
+      APP_DB_USER: pharma_app
+      APP_DB_PASSWORD: ${DATABASE_PASSWORD:?Run python scripts/configure_local_database.py first}
+    ports:
+      - "127.0.0.1:${DATABASE_PORT:-5433}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql
+      - ./docker/postgres/init-app.sql:/docker-entrypoint-initdb.d/10-init-app.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d postgres -h 127.0.0.1"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+
+volumes:
+  postgres_data:

@@ -1,0 +1,124 @@
+# Pharma Intel
+
+A pharmaceutical commercial analytics and decision-support platform built with
+Django, PostgreSQL, background Python workers, and Power BI.
+
+## Current state
+
+The repository contains a Django project skeleton, persistent local
+configuration, and a Docker Compose PostgreSQL connection setup. The local
+connection was verified with Django 6.1.1, PostgreSQL 18.6, and psycopg 3.3.5:
+the application role connected without administrative privileges and completed
+a temporary write/read operation that was rolled back. New environments must
+run the same checks themselves.
+
+Business models, authentication workflows, ingestion, analytics, workers, and
+dashboards are not configured yet. This local setup is not a deployed or
+production-ready application.
+
+See [the architecture decisions](docs/architecture-decisions.md) for the agreed
+scope and open questions, including company isolation and expected capacity.
+
+## Local setup
+
+Use Python 3.14. Run commands from the repository root. If you already have the
+project's virtual environment, activate it instead of creating it again.
+
+```bash
+python3.14 -m venv .venv
+source .venv/bin/activate
+python -m pip install -r requirements.txt
+python scripts/create_local_env.py
+python scripts/configure_local_database.py
+unset DJANGO_SECRET_KEY
+docker compose config --quiet
+docker compose up -d --wait --wait-timeout 120
+python manage.py check
+python scripts/check_database.py
+python -m pip check
+```
+
+The environment creation script writes a random development signing key to a
+private `.env` file and refuses to overwrite an existing file. Run that script
+only for the initial setup. Existing process environment variables take priority
+over `.env`; `unset` removes a temporary shell key left over from earlier setup.
+
+Keep `.env` private. `.env.example` documents the required variable and contains
+no working secret. The `.gitignore` excludes `.env`, the virtual environment,
+and generated Python caches.
+
+The Django check validates configuration. The separate database check verifies
+an actual connection, the application role's administrative privilege flags,
+and a temporary write/read operation that is rolled back. Neither check proves
+production readiness or concurrency capacity.
+
+## Local PostgreSQL
+
+Start Docker Desktop before running Compose. The database is reachable from
+this Mac at `127.0.0.1:5433`; port 5433 avoids the common local PostgreSQL port
+5432 and can be changed through `DATABASE_PORT` in `.env`.
+
+Compose uses the exact digest of the official image downloaded by the user.
+The named volume is mounted at `/var/lib/postgresql`, matching the versioned
+data layout used by PostgreSQL 18 and newer official images. Database files are
+outside Git and persist when the container is stopped or recreated.
+
+The initial SQL creates `pharma_intel` and a separate `pharma_app` login.
+Django uses this login instead of the `postgres` administrator. The local app
+role owns its database so it can run migrations, but cannot create databases,
+manage roles, replicate, or act as a superuser. Production runtime and migration
+roles will be separated before deployment.
+
+`configure_local_database.py` generates missing passwords, preserves existing
+values and the Django key, and updates `.env` with owner-only permissions.
+Concurrent setup runs are serialized, and configuration replacement is atomic.
+The helper supports macOS/Linux. Real environment variables override `.env` in
+both Django and Compose; remove stale overrides if configuration disagrees.
+
+Initialization SQL and the container's initialization passwords apply only to a
+new, empty volume. Editing `.env` does not rotate passwords in an existing
+database. Preserve the volume and use a deliberate database password change if
+credentials need updating; do not regenerate credentials or delete data to fix
+an authentication error.
+
+Useful commands from the repository root:
+
+```bash
+docker compose ps
+docker compose stop
+docker compose up -d --wait --wait-timeout 120
+```
+
+Container health reports server readiness. Run `python scripts/check_database.py`
+to establish that Django can authenticate and use its database. Use
+`docker compose config --quiet` to validate Compose without printing passwords.
+
+## File connections
+
+| File | Purpose |
+| --- | --- |
+| `requirements.txt` | Exact runtime dependency versions verified during setup |
+| `manage.py` | Entry point for project management commands |
+| `config/settings.py` | Loads local configuration and defines Django settings |
+| `config/urls.py` | Will connect URL paths to application views |
+| `config/asgi.py`, `config/wsgi.py` | Entry points used by compatible web servers |
+| `scripts/create_local_env.py` | Creates the private local configuration once |
+| `scripts/configure_local_database.py` | Adds missing database credentials safely |
+| `compose.yaml` | Runs the pinned local PostgreSQL image with persistent storage |
+| `docker/postgres/init-app.sql` | Creates the database and application login on first initialization |
+| `scripts/check_database.py` | Verifies Django's database connection and a rolled-back write |
+| `.env.example` | Shareable example of the required local configuration |
+| `AGENTS.md` | Learning workflow and engineering standards |
+
+## Development workflow
+
+The user runs terminal commands; the assistant prepares file changes and explains
+them. Group closely related work into coherent steps and review the relevant
+check results. Commit and push after the full initial setup is complete, then
+after each completed feature. Individual setup steps and lessons do not require
+a Git checkpoint.
+
+For new dependency selections and upgrades, prefer the latest stable compatible
+releases, verify the resolved versions, and record exact pins. Re-run relevant
+checks after an upgrade and include the changes in the next setup or feature
+checkpoint.

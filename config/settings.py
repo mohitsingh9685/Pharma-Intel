@@ -1,0 +1,125 @@
+"""Django configuration for local development with PostgreSQL."""
+
+import os
+from pathlib import Path
+
+from django.core.exceptions import ImproperlyConfigured
+from dotenv import load_dotenv
+
+
+BASE_DIR = Path(__file__).resolve().parent.parent
+
+# Read local configuration from the project root, regardless of the working
+# directory. Existing process variables take priority; values remain literal.
+load_dotenv(BASE_DIR / ".env", override=False, interpolate=False)
+
+# Read the signing key after loading local configuration. Never generate one
+# during application startup: all processes must keep using the same key.
+SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", "")
+if not SECRET_KEY.strip():
+    raise ImproperlyConfigured(
+        "Set DJANGO_SECRET_KEY in the environment or the project-root .env file. "
+        "For first-time local setup, run: python scripts/create_local_env.py"
+    )
+
+DEBUG = False
+ALLOWED_HOSTS = ["localhost", "127.0.0.1", "[::1]"]
+
+INSTALLED_APPS = [
+    "django.contrib.admin",
+    "django.contrib.auth",
+    "django.contrib.contenttypes",
+    "django.contrib.sessions",
+    "django.contrib.messages",
+    "django.contrib.staticfiles",
+    "accounts.apps.AccountsConfig",
+]
+
+AUTH_USER_MODEL = "accounts.User"
+
+MIDDLEWARE = [
+    "django.middleware.security.SecurityMiddleware",
+    "django.contrib.sessions.middleware.SessionMiddleware",
+    "django.middleware.common.CommonMiddleware",
+    "django.middleware.csrf.CsrfViewMiddleware",
+    "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "django.contrib.messages.middleware.MessageMiddleware",
+    "django.middleware.clickjacking.XFrameOptionsMiddleware",
+]
+
+ROOT_URLCONF = "config.urls"
+TEMPLATES = [
+    {
+        "BACKEND": "django.template.backends.django.DjangoTemplates",
+        "DIRS": [],
+        "APP_DIRS": True,
+        "OPTIONS": {
+            "context_processors": [
+                "django.template.context_processors.request",
+                "django.contrib.auth.context_processors.auth",
+                "django.contrib.messages.context_processors.messages",
+            ],
+        },
+    }
+]
+WSGI_APPLICATION = "config.wsgi.application"
+
+AUTH_PASSWORD_VALIDATORS = [
+    {
+        "NAME": (
+            "django.contrib.auth.password_validation."
+            "UserAttributeSimilarityValidator"
+        )
+    },
+    {
+        "NAME": "django.contrib.auth.password_validation.MinimumLengthValidator"
+    },
+    {
+        "NAME": "django.contrib.auth.password_validation.CommonPasswordValidator"
+    },
+    {
+        "NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"
+    },
+]
+
+def required_setting(name: str) -> str:
+    """Require connection settings rather than silently connecting elsewhere."""
+    value = os.environ.get(name, "")
+    if not value.strip():
+        raise ImproperlyConfigured(
+            f"Set {name} in the environment or .env. "
+            "For local setup, run: python scripts/configure_local_database.py"
+        )
+    return value
+
+
+database_port = required_setting("DATABASE_PORT")
+if (
+    not database_port.isascii()
+    or not database_port.isdigit()
+    or not 1 <= int(database_port) <= 65535
+):
+    raise ImproperlyConfigured("DATABASE_PORT must be an integer from 1 to 65535.")
+
+# Django uses its own database role, not the container's administrator account.
+# Connections are closed after requests for this local setup. Deployment pooling
+# and capacity limits will be configured against the agreed workload.
+DATABASES = {
+    "default": {
+        "ENGINE": "django.db.backends.postgresql",
+        "NAME": required_setting("DATABASE_NAME"),
+        "USER": required_setting("DATABASE_USER"),
+        "PASSWORD": required_setting("DATABASE_PASSWORD"),
+        "HOST": required_setting("DATABASE_HOST"),
+        "PORT": database_port,
+        "CONN_MAX_AGE": 0,
+        "OPTIONS": {"connect_timeout": 5},
+    }
+}
+
+LANGUAGE_CODE = "en-us"
+TIME_ZONE = "UTC"
+USE_I18N = True
+USE_TZ = True
+STATIC_URL = "static/"
+DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"

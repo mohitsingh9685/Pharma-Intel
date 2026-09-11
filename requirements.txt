@@ -1,0 +1,18 @@
+# Runtime dependencies for Python 3.14/macOS development.
+# Re-resolve and verify dependencies when adding packages or changing platforms.
+# Review supported patch updates regularly; version pins are not permanent.
+
+# Django web framework: stable release verified from the official release page.
+Django==6.1.1
+
+# Django dependency: utilities that connect synchronous and asynchronous code.
+asgiref==3.12.1
+
+# Django dependency: utilities for parsing and formatting SQL text.
+sqlparse==0.6.0
+
+# Local .env file loading, pinned to the version verified by the user.
+python-dotenv==1.2.3
+
+# PostgreSQL driver, pinned to the version verified with PostgreSQL 18.6.
+psycopg[binary]==3.3.5
