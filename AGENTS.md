@@ -16,8 +16,8 @@ The user wants to learn while building this project.
   only when user-run results or an unresolved requirement are necessary to
   proceed correctly, not merely because one small edit is finished.
 - Before changing files, briefly explain the current step and its purpose.
-- Prepare the files for that increment, then explain them and provide the
-  commands for the user to run before moving on.
+- Prepare the files, run routine verification, then explain the changes and
+  results before moving on. Provide only important control commands for the user.
 - Include a short section labelled "lesson for u" in every substantive final
   response. Use simple words to explain what changed, what the relevant files
   do, and how the code, data, or request flow connects them.
@@ -27,23 +27,24 @@ The user wants to learn while building this project.
 
 ## Command execution and configuration
 
-- The user runs terminal commands themselves to learn configuration. The
-  assistant reads, creates, and edits project files using file tools.
-- Do not execute shell commands, setup steps, dependency installation, migrations,
-  application servers, tests, or other project commands unless the user explicitly
-  authorizes an exception. Provide commands for the user to execute instead.
-- In each "lesson for u", include the commands needed for the current increment
-  in execution order. State the working directory, explain each command briefly,
-  and describe the expected output or success condition. If the increment needs
-  no commands, say so instead of inventing unnecessary commands.
+- The assistant runs routine local development commands, including migration
+  generation, migrations, checks, and focused automated tests.
+- The user runs important learning and control commands: dependency installation
+  or upgrades, secret and account creation, Docker lifecycle operations, Git
+  commits and pushes, destructive operations, and production actions, unless the
+  user explicitly delegates one of them.
+- In each "lesson for u", list commands the assistant ran and explain their
+  purpose and result. For commands reserved for the user, state the working
+  directory, execution order, and expected success condition. If no user command
+  is needed, say so.
 - Do not repeat commands the user has already completed successfully, including
   changing directories, activating the virtual environment, installing unchanged
   dependencies, or rerunning unaffected checks. Provide only commands introduced
   or made necessary by the current changes, with prerequisites stated briefly.
 - When a command fails, continue from the failed command after the issue is fixed
   rather than asking the user to rerun the entire earlier sequence.
-- Wait for the user's results before relying on command-generated files,
-  installed dependencies, running services, migrations, or test outcomes.
+- Never claim a command passed without its output. Resolve routine command
+  failures during the same increment when possible.
 - Clearly distinguish changes made to files from commands provided but not run.
   Review the user's output and resolve issues within the same learning step.
 - Provide Git review, staging, commit, and push commands at meaningful milestones:
@@ -66,9 +67,9 @@ The user wants to learn while building this project.
   version as the latest. When release lookups are unavailable under the user's
   command-execution workflow, obtain versions through user-run package commands,
   then record the exact resolved versions after validation.
-- Provide verification checks proportionate to the change's impact for the user
-  to run. Do not claim a check passed without evidence. Performance and concurrency
-  claims require evidence against agreed workloads.
+- Run verification checks proportionate to the change's impact. Do not claim a
+  check passed without evidence. Performance and concurrency claims require
+  evidence against agreed workloads.
 - Keep secrets and local environments out of version control.
 - Consult docs/architecture-decisions.md for the accepted stack and open design
   questions. Do not silently decide company isolation or capacity targets.

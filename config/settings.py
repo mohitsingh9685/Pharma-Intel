@@ -13,6 +13,22 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # directory. Existing process variables take priority; values remain literal.
 load_dotenv(BASE_DIR / ".env", override=False, interpolate=False)
 
+
+def boolean_setting(name: str, *, default: bool) -> bool:
+    """Read an explicit boolean setting and reject ambiguous values."""
+    value = os.environ.get(name)
+    if value is None:
+        return default
+
+    normalized_value = value.strip().lower()
+    if normalized_value in {"1", "true", "yes", "on"}:
+        return True
+    if normalized_value in {"0", "false", "no", "off"}:
+        return False
+    raise ImproperlyConfigured(
+        f"{name} must be one of: true, false, 1, 0, yes, no, on, off."
+    )
+
 # Read the signing key after loading local configuration. Never generate one
 # during application startup: all processes must keep using the same key.
 SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", "")
@@ -22,7 +38,7 @@ if not SECRET_KEY.strip():
         "For first-time local setup, run: python scripts/create_local_env.py"
     )
 
-DEBUG = False
+DEBUG = boolean_setting("DJANGO_DEBUG", default=False)
 ALLOWED_HOSTS = ["localhost", "127.0.0.1", "[::1]"]
 
 INSTALLED_APPS = [
@@ -33,6 +49,7 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "accounts.apps.AccountsConfig",
+    "master_data.apps.MasterDataConfig",
 ]
 
 AUTH_USER_MODEL = "accounts.User"
@@ -122,4 +139,5 @@ TIME_ZONE = "UTC"
 USE_I18N = True
 USE_TZ = True
 STATIC_URL = "static/"
+STATIC_ROOT = BASE_DIR / "staticfiles"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"

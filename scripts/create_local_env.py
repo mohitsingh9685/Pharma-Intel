@@ -11,6 +11,7 @@ def main() -> None:
     content = (
         "# Local development configuration. Do not commit this file.\n"
         f"DJANGO_SECRET_KEY={secrets.token_urlsafe(64)}\n"
+        "DJANGO_DEBUG=true\n"
     )
 
     try:
