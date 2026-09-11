@@ -16,8 +16,12 @@ instead of repeating product names in every row.
 | `created_at` | When the record was created |
 | `updated_at` | When the record was last changed |
 
-Product codes are trimmed, stored in uppercase, and unique regardless of letter
-case. The database rejects blank codes, blank names, and duplicate codes.
+Normal Django writes trim product codes and store them in uppercase. The database
+rejects blank or untrimmed codes and names, plus duplicate codes that differ only
+by case or surrounding whitespace.
+
+Django Admin accepts the code during creation and makes it read-only afterward.
+The name and active status remain editable.
 
 Products are deactivated instead of deleted through Django Admin. This supports
 future historical reporting because old business records must continue to refer

@@ -35,7 +35,11 @@ recommendations, support what-if scenarios, and provide Power BI reporting.
 - A local superuser created successfully.
 - Three authentication tests passed against PostgreSQL.
 - The product migration applied successfully.
-- All four product master-data tests passed against PostgreSQL.
+- Both territory and master-data integrity migrations applied successfully.
+- The Hospital, Doctor/HCP, and Sales Representative migration applied
+  successfully.
+- All 18 master-data tests passed against PostgreSQL.
+- The complete 21-test project suite passed against PostgreSQL.
 
 ## Product master data
 
@@ -43,6 +47,25 @@ The product model, migration, and Django Admin configuration are complete.
 Product records contain a stable code, name, active status, and creation/update
 times. The database prevents blank fields and product-code duplicates that differ
 only by letter case.
+
+## Territory master data
+
+The territory-identity model, migration, and Django Admin configuration are
+complete. Territory records contain a stable code, name, required commercial
+level, active status, and creation/update times. The database prevents blank or
+untrimmed fields, invalid levels, and territory-code duplicates that differ only
+by letter case or whitespace. Codes and levels cannot be edited through Admin
+after creation. Hierarchy relationships are intentionally kept out of the
+identity record so they can later be modeled with effective dates without
+rewriting historical reporting.
+
+## Remaining master-data identities
+
+Hospital, Doctor/HCP, and Sales Representative identities are implemented with
+the same stable-code, lifecycle, normalization, and database-integrity rules.
+A Sales Representative may optionally link to one application login. Mutable
+territory, hospital, and specialty relationships remain separate so they can be
+effective-dated without changing historical results.
 
 ## Configuration flow
 
@@ -79,7 +102,8 @@ Django generated `accounts/migrations/0001_initial.py` from the user model when
 tables. The user manually supplied the first administrator email and password;
 Django stored a password hash rather than the readable password.
 
-No synthetic or real pharmaceutical business data has been generated yet.
+No automatic sample-data generator has been added. The records currently in the
+database were entered manually through Django Admin.
 
 ## Main files
 
@@ -97,9 +121,9 @@ No synthetic or real pharmaceutical business data has been generated yet.
 | `accounts/forms.py` | Custom-user forms |
 | `accounts/admin.py` | User management in Django Admin |
 | `accounts/tests.py` | Authentication and uniqueness tests |
-| `master_data/models.py` | Product master-data model |
-| `master_data/admin.py` | Product management in Django Admin |
-| `master_data/tests.py` | Product normalization and constraint tests |
+| `master_data/models.py` | Shared rules and all five planned master-data identities |
+| `master_data/admin.py` | Master-data management in Django Admin |
+| `master_data/tests.py` | Master-data normalization, integrity, and lifecycle tests |
 | `docker/postgres/init-app.sql` | Initial local database and application role |
 | `scripts/create_local_env.py` | Local Django secret generation |
 | `scripts/configure_local_database.py` | Local database credential generation |
@@ -109,6 +133,8 @@ No synthetic or real pharmaceutical business data has been generated yet.
 | `docs/decisions/0001-single-company-deployment.md` | Deployment-boundary decision |
 | `docs/local-testing.md` | Local PostgreSQL test design |
 | `docs/product-master-data.md` | Product fields and business rules |
+| `docs/territory-master-data.md` | Territory fields and hierarchy-history decision |
+| `docs/remaining-master-data.md` | Hospital, HCP, and representative identity rules |
 
 ## Security separation
 
@@ -122,6 +148,7 @@ person can do inside Pharma Intel. These are separate layers:
 
 ## Remaining work
 
-The remaining master data includes territories, hospitals, doctors, and sales
-representatives. Business-data imports, background processing, analytics,
-scoring, scenarios, deployment, and Power BI integration remain future work.
+All five master-data identity types from the project plan are now represented.
+Effective-dated hierarchy and affiliation assignments, controlled specialties,
+business-data imports, background processing, analytics, scoring, scenarios,
+deployment, and Power BI integration remain future work.
