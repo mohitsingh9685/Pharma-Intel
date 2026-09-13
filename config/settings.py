@@ -52,6 +52,7 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "accounts.apps.AccountsConfig",
     "master_data.apps.MasterDataConfig",
+    "business_data.apps.BusinessDataConfig",
 ]
 
 AUTH_USER_MODEL = "accounts.User"

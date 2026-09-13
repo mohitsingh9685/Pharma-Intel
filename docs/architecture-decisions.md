@@ -32,6 +32,11 @@ Master-data hierarchy and affiliation changes use separate effective-dated
 records. The cardinality, date, and overlap rules are recorded in
 `docs/decisions/0002-effective-dated-master-data-relationships.md`.
 
+The first business-data foundation uses a shared generated Calendar dimension
+and immutable source-line Sales facts. Its grain, duplicate key, signed measure
+rules, and historical attribution are recorded in
+`docs/decisions/0003-sales-transaction-grain.md`.
+
 ## Requirements retained from the project plan
 
 - Two roles: Admin and Business User, with multiple users in each role.
@@ -43,8 +48,9 @@ records. The cardinality, date, and overlap rules are recorded in
 - Master data covers doctors, hospitals, products, territories, and sales reps.
 - Business data covers sales, prescriptions, visits, targets, and competitor
   activity, supported by a calendar dimension.
-- Historical business data is retained. Repeated transactions must not create
-  duplicates. Corrections need an explicit policy before schema implementation.
+- Historical business data is retained. Repeated source records must not create
+  duplicate facts. Sales facts are immutable; their authorized correction and
+  void workflow remains an open design decision.
 - Synthetic data supports development and demonstration; the platform must
   accept changing company data through its supported ingestion workflows.
 - Models require a baseline, evaluation, and business justification. Scenario
@@ -67,8 +73,9 @@ records. The cardinality, date, and overlap rules are recorded in
 1. Expected simultaneous users, data volume, upload size, and upload frequency.
 2. Required reporting freshness and acceptable refresh duration.
 3. Hosting, identity provider, and Power BI access/licensing approach.
-4. Data contracts: record grain and keys, KPI definitions, historical assignments,
-   correction policies, and behavior when an upload contains invalid rows.
+4. Remaining data contracts: non-sales record grains and keys, KPI definitions,
+   the sales correction/void workflow, and behavior when an upload contains
+   invalid rows.
 5. Worker/queue implementation and measurable availability/recovery targets.
 
 Capacity targets must be established before making performance and concurrency

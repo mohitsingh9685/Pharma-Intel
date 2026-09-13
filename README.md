@@ -5,16 +5,12 @@ Django, PostgreSQL, background Python workers, and Power BI.
 
 ## Current state
 
-The repository contains a Django project skeleton, persistent local
-configuration, and a Docker Compose PostgreSQL connection setup. The local
-connection was verified with Django 6.1.1, PostgreSQL 18.6, and psycopg 3.3.5:
-the application role connected without administrative privileges and completed
-a temporary write/read operation that was rolled back. New environments must
-run the same checks themselves.
-
-Business models, authentication workflows, ingestion, analytics, workers, and
-dashboards are not configured yet. This local setup is not a deployed or
-production-ready application.
+The repository contains the Django/PostgreSQL foundation, email-based users,
+master data with effective-dated relationships, a reporting Calendar dimension,
+and immutable source-line Sales facts. Django 6.1.1, PostgreSQL 18.6, and
+psycopg 3.3.5 are verified locally. Imports, analytics, workers, dashboards,
+deployment, and measurable capacity targets remain future milestones, so this
+is not yet a production deployment.
 
 See [the architecture decisions](docs/architecture-decisions.md) for the agreed
 scope and open questions, including company isolation and expected capacity.
@@ -35,6 +31,7 @@ docker compose config --quiet
 docker compose up -d --wait --wait-timeout 120
 python manage.py check
 python scripts/check_database.py
+python manage.py migrate
 python -m pip check
 ```
 
@@ -100,13 +97,17 @@ to establish that Django can authenticate and use its database. Use
 | `requirements.txt` | Exact runtime dependency versions verified during setup |
 | `manage.py` | Entry point for project management commands |
 | `config/settings.py` | Loads local configuration and defines Django settings |
-| `config/urls.py` | Will connect URL paths to application views |
+| `config/urls.py` | Top-level URL routes, including Django Admin |
 | `config/asgi.py`, `config/wsgi.py` | Entry points used by compatible web servers |
 | `scripts/create_local_env.py` | Creates the private local configuration once |
 | `scripts/configure_local_database.py` | Adds missing database credentials safely |
 | `compose.yaml` | Runs the pinned local PostgreSQL image with persistent storage |
 | `docker/postgres/init-app.sql` | Creates the database and application login on first initialization |
 | `scripts/check_database.py` | Verifies Django's database connection and a rolled-back write |
+| `accounts/` | Email-based users, roles, forms, Admin, and tests |
+| `master_data/` | Commercial identities and effective-dated relationships |
+| `business_data/` | Reporting Calendar and immutable source-line Sales facts |
+| `docs/business-data-foundation.md` | Calendar population and Sales data rules |
 | `.env.example` | Shareable example of the required local configuration |
 | `AGENTS.md` | Learning workflow and engineering standards |
 

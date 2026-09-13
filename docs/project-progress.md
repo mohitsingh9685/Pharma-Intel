@@ -1,6 +1,6 @@
 # Pharma Intel project progress
 
-Last updated: 2026-09-13
+Last updated: 2026-09-14
 
 ## Product goal
 
@@ -41,8 +41,12 @@ recommendations, support what-if scenarios, and provide Power BI reporting.
 - The relationship migrations installed `btree_gist`, created five dated
   assignment tables, installed cross-table geography guards, and made Territory
   levels immutable successfully.
+- The Calendar and Sales migrations created the shared reporting date dimension,
+  immutable source-line Sales facts, reporting indexes, duplicate protection,
+  and leaf-Territory database guard successfully.
 - All 16 focused relationship tests passed against PostgreSQL.
-- The complete 37-test project suite passed against PostgreSQL.
+- All 30 focused Calendar and Sales tests passed against PostgreSQL.
+- The complete 67-test project suite passed against PostgreSQL.
 
 ## Product master data
 
@@ -78,13 +82,29 @@ ranges retain assignment history. PostgreSQL exclusion constraints prevent
 invalid overlaps during concurrent writes, and Admin provides searchable pages
 for maintaining and reviewing each relationship type.
 
+## Calendar and Sales foundation
+
+`CalendarDate` provides one reusable reporting row per date. The
+`populate_calendar` command builds and verifies complete years, including leap
+days and ISO week-year boundaries. The chosen history and forecast range remains
+a deployment decision, so migrations do not populate it silently.
+
+`SalesTransaction` stores one immutable source-system sales line. Each row keeps
+its original date, Product, leaf Territory, optional Hospital, optional Sales
+Representative, signed decimal measures, and currency. PostgreSQL prevents a
+second row with the same source-system/record pair, rejects invalid measure
+signs and non-finite numbers, and protects all referenced records. Dated
+relationship validation uses the transaction date rather than today's
+assignments. Sales remains read-only in Admin until the audited import and
+correction workflows are implemented.
+
 ## Configuration flow
 
 ```text
 manage.py / ASGI / WSGI
     -> config.settings
     -> python-dotenv reads .env
-    -> Django loads accounts and master_data
+    -> Django loads accounts, master_data, and business_data
     -> psycopg connects to PostgreSQL
 ```
 
@@ -113,8 +133,10 @@ Django generated `accounts/migrations/0001_initial.py` from the user model when
 tables. The user manually supplied the first administrator email and password;
 Django stored a password hash rather than the readable password.
 
-No automatic sample-data generator has been added. The records currently in the
-database were entered manually through Django Admin.
+No sample business-data generator has been added. The Calendar command generates
+deterministic date rows only after an administrator chooses a complete-year
+range. Master-data records currently in the local database were entered manually
+through Django Admin.
 
 ## Main files
 
@@ -136,6 +158,14 @@ database were entered manually through Django Admin.
 | `master_data/admin.py` | Master-data management in Django Admin |
 | `master_data/tests.py` | Master-data normalization, integrity, and lifecycle tests |
 | `master_data/test_relationships.py` | Historical relationship and overlap tests |
+| `business_data/calendar.py` | Deterministic Calendar field definitions |
+| `business_data/models.py` | Calendar dimension and immutable Sales fact |
+| `business_data/validation.py` | Dated Sales-to-master-data validation |
+| `business_data/admin.py` | Read-only Calendar and safe Sales entry/review |
+| `business_data/management/commands/populate_calendar.py` | Complete-year Calendar population and verification |
+| `business_data/tests.py` | Sales integrity and lifecycle tests |
+| `business_data/test_calendar.py` | Calendar generation and command tests |
+| `business_data/test_validation.py` | Dated Sales dimension-validation tests |
 | `docker/postgres/init-app.sql` | Initial local database and application role |
 | `scripts/create_local_env.py` | Local Django secret generation |
 | `scripts/configure_local_database.py` | Local database credential generation |
@@ -149,6 +179,8 @@ database were entered manually through Django Admin.
 | `docs/remaining-master-data.md` | Hospital, HCP, and representative identity rules |
 | `docs/master-data-relationships.md` | Relationship dates, cardinality, and lifecycle |
 | `docs/decisions/0002-effective-dated-master-data-relationships.md` | Historical-assignment decision |
+| `docs/business-data-foundation.md` | Calendar, Sales, and reporting rules |
+| `docs/decisions/0003-sales-transaction-grain.md` | Sales grain and attribution decision |
 
 ## Security separation
 
@@ -162,7 +194,7 @@ person can do inside Pharma Intel. These are separate layers:
 
 ## Remaining work
 
-The master-data identities, controlled specialties, hierarchy, and affiliation
-foundations are now represented. Business transaction models, correction/audit
-workflow, imports, background processing, analytics, scoring, scenarios,
-deployment, and Power BI integration remain future work.
+The master-data foundation plus Calendar and Sales are represented. Other
+business facts, Sales correction/audit workflow, imports, background processing,
+analytics, scoring, scenarios, deployment, and Power BI integration remain
+future work.
