@@ -12,6 +12,7 @@ def main() -> None:
         "# Local development configuration. Do not commit this file.\n"
         f"DJANGO_SECRET_KEY={secrets.token_urlsafe(64)}\n"
         "DJANGO_DEBUG=true\n"
+        "DJANGO_TIME_ZONE=Asia/Kolkata\n"
     )
 
     try:

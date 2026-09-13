@@ -1,6 +1,6 @@
 # Pharma Intel project progress
 
-Last updated: 2026-09-12
+Last updated: 2026-09-13
 
 ## Product goal
 
@@ -38,8 +38,11 @@ recommendations, support what-if scenarios, and provide Power BI reporting.
 - Both territory and master-data integrity migrations applied successfully.
 - The Hospital, Doctor/HCP, and Sales Representative migration applied
   successfully.
-- All 18 master-data tests passed against PostgreSQL.
-- The complete 21-test project suite passed against PostgreSQL.
+- The relationship migrations installed `btree_gist`, created five dated
+  assignment tables, installed cross-table geography guards, and made Territory
+  levels immutable successfully.
+- All 16 focused relationship tests passed against PostgreSQL.
+- The complete 37-test project suite passed against PostgreSQL.
 
 ## Product master data
 
@@ -55,9 +58,9 @@ complete. Territory records contain a stable code, name, required commercial
 level, active status, and creation/update times. The database prevents blank or
 untrimmed fields, invalid levels, and territory-code duplicates that differ only
 by letter case or whitespace. Codes and levels cannot be edited through Admin
-after creation. Hierarchy relationships are intentionally kept out of the
-identity record so they can later be modeled with effective dates without
-rewriting historical reporting.
+after creation, and the database makes levels immutable. Hierarchy relationships
+are stored separately with effective dates so changes do not rewrite historical
+reporting.
 
 ## Remaining master-data identities
 
@@ -66,6 +69,14 @@ the same stable-code, lifecycle, normalization, and database-integrity rules.
 A Sales Representative may optionally link to one application login. Mutable
 territory, hospital, and specialty relationships remain separate so they can be
 effective-dated without changing historical results.
+
+## Effective-dated master-data relationships
+
+Controlled Specialties and five dated relationship types now connect geography,
+hospitals, Doctors/HCPs, specialties, and Sales Representatives. Inclusive date
+ranges retain assignment history. PostgreSQL exclusion constraints prevent
+invalid overlaps during concurrent writes, and Admin provides searchable pages
+for maintaining and reviewing each relationship type.
 
 ## Configuration flow
 
@@ -124,6 +135,7 @@ database were entered manually through Django Admin.
 | `master_data/models.py` | Shared rules and all five planned master-data identities |
 | `master_data/admin.py` | Master-data management in Django Admin |
 | `master_data/tests.py` | Master-data normalization, integrity, and lifecycle tests |
+| `master_data/test_relationships.py` | Historical relationship and overlap tests |
 | `docker/postgres/init-app.sql` | Initial local database and application role |
 | `scripts/create_local_env.py` | Local Django secret generation |
 | `scripts/configure_local_database.py` | Local database credential generation |
@@ -135,6 +147,8 @@ database were entered manually through Django Admin.
 | `docs/product-master-data.md` | Product fields and business rules |
 | `docs/territory-master-data.md` | Territory fields and hierarchy-history decision |
 | `docs/remaining-master-data.md` | Hospital, HCP, and representative identity rules |
+| `docs/master-data-relationships.md` | Relationship dates, cardinality, and lifecycle |
+| `docs/decisions/0002-effective-dated-master-data-relationships.md` | Historical-assignment decision |
 
 ## Security separation
 
@@ -148,7 +162,7 @@ person can do inside Pharma Intel. These are separate layers:
 
 ## Remaining work
 
-All five master-data identity types from the project plan are now represented.
-Effective-dated hierarchy and affiliation assignments, controlled specialties,
-business-data imports, background processing, analytics, scoring, scenarios,
+The master-data identities, controlled specialties, hierarchy, and affiliation
+foundations are now represented. Business transaction models, correction/audit
+workflow, imports, background processing, analytics, scoring, scenarios,
 deployment, and Power BI integration remain future work.

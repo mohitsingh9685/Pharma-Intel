@@ -2,6 +2,7 @@
 
 import os
 from pathlib import Path
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from django.core.exceptions import ImproperlyConfigured
 from dotenv import load_dotenv
@@ -47,6 +48,7 @@ INSTALLED_APPS = [
     "django.contrib.contenttypes",
     "django.contrib.sessions",
     "django.contrib.messages",
+    "django.contrib.postgres",
     "django.contrib.staticfiles",
     "accounts.apps.AccountsConfig",
     "master_data.apps.MasterDataConfig",
@@ -135,7 +137,13 @@ DATABASES = {
 }
 
 LANGUAGE_CODE = "en-us"
-TIME_ZONE = "UTC"
+TIME_ZONE = os.environ.get("DJANGO_TIME_ZONE", "UTC").strip()
+try:
+    ZoneInfo(TIME_ZONE)
+except ZoneInfoNotFoundError as error:
+    raise ImproperlyConfigured(
+        f"DJANGO_TIME_ZONE is not a recognized IANA time zone: {TIME_ZONE!r}."
+    ) from error
 USE_I18N = True
 USE_TZ = True
 STATIC_URL = "static/"

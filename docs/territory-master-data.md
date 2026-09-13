@@ -22,8 +22,9 @@ differ only by case or whitespace, and unknown or missing levels. Django Admin
 supports search and filters by level and active status.
 
 Codes and levels are editable while a record is first created. Django Admin
-makes them read-only afterward because changing either value would change the
-record's identity. Names and active status remain editable.
+makes both read-only afterward, and PostgreSQL rejects every later level change.
+Changing either value would change the record's identity and could invalidate
+historical hierarchy. Names and active status remain editable.
 
 ## Why parent relationships are not stored here
 

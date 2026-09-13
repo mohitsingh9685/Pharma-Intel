@@ -28,6 +28,10 @@ company identifier on every row. Separate companies require separate deployments
 The reasoning and consequences are recorded in
 `docs/decisions/0001-single-company-deployment.md`.
 
+Master-data hierarchy and affiliation changes use separate effective-dated
+records. The cardinality, date, and overlap rules are recorded in
+`docs/decisions/0002-effective-dated-master-data-relationships.md`.
+
 ## Requirements retained from the project plan
 
 - Two roles: Admin and Business User, with multiple users in each role.
