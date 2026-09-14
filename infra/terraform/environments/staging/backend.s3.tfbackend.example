@@ -1,0 +1,6 @@
+bucket       = "pharma-intel-staging-tfstate-<ACCOUNT_ID>-ap-south-1"
+key          = "environments/staging/terraform.tfstate"
+region       = "ap-south-1"
+encrypt      = true
+kms_key_id   = "<STATE_KMS_KEY_ARN>"
+use_lockfile = true

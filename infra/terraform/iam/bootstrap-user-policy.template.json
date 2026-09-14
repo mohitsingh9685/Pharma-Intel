@@ -1,0 +1,11 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "AssumePharmaIntelTerraformRole",
+      "Effect": "Allow",
+      "Action": "sts:AssumeRole",
+      "Resource": "arn:aws:iam::<ACCOUNT_ID>:role/PharmaIntelTerraformRole"
+    }
+  ]
+}

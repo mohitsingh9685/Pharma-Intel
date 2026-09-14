@@ -16,6 +16,17 @@ React/Next.js frontend or FastAPI service is not part of the agreed V1 stack.
 The worker framework, durable queue, hosting, and Power BI integration method
 remain to be selected.
 
+The initial AWS staging region is `ap-south-1`. The existing AWS account may be
+used for staging and the initial deployment while the project is unfunded, but
+Pharma Intel receives dedicated IAM identities, encryption keys, and buckets;
+resources belonging to other projects are not reused. A separate production
+account remains the target boundary after funding.
+
+Original CSV and Excel uploads are stored privately in Amazon S3. PostgreSQL
+stores import metadata, validation results, lineage, and accepted structured
+records. Terraform defines the cloud resources, and its manually bootstrapped
+identity assumes an MFA-protected role with milestone-specific permissions.
+
 Django fits the application's administration and data-processing workflows.
 The application and workers can share Python business logic and validation.
 Power BI provides the planned analytical views.

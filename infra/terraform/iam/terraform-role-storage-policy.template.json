@@ -1,0 +1,225 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "CreateOnlyPharmaIntelStorageBucketsInMumbai",
+      "Effect": "Allow",
+      "Action": "s3:CreateBucket",
+      "Resource": [
+        "arn:aws:s3:::pharma-intel-staging-tfstate-<ACCOUNT_ID>-ap-south-1",
+        "arn:aws:s3:::pharma-intel-staging-sales-import-<ACCOUNT_ID>-ap-south-1"
+      ],
+      "Condition": {
+        "StringEquals": {
+          "s3:LocationConstraint": "ap-south-1"
+        }
+      }
+    },
+    {
+      "Sid": "ReadPharmaIntelStorageConfiguration",
+      "Effect": "Allow",
+      "Action": [
+        "s3:GetAccelerateConfiguration",
+        "s3:GetBucketAcl",
+        "s3:GetBucketCORS",
+        "s3:GetBucketLocation",
+        "s3:GetBucketLogging",
+        "s3:GetBucketNotification",
+        "s3:GetBucketObjectLockConfiguration",
+        "s3:GetBucketOwnershipControls",
+        "s3:GetBucketPolicy",
+        "s3:GetBucketPolicyStatus",
+        "s3:GetBucketPublicAccessBlock",
+        "s3:GetBucketRequestPayment",
+        "s3:GetBucketTagging",
+        "s3:GetBucketVersioning",
+        "s3:GetBucketWebsite",
+        "s3:GetEncryptionConfiguration",
+        "s3:GetLifecycleConfiguration",
+        "s3:GetReplicationConfiguration",
+        "s3:ListBucket",
+        "s3:ListBucketVersions"
+      ],
+      "Resource": [
+        "arn:aws:s3:::pharma-intel-staging-tfstate-<ACCOUNT_ID>-ap-south-1",
+        "arn:aws:s3:::pharma-intel-staging-sales-import-<ACCOUNT_ID>-ap-south-1"
+      ]
+    },
+    {
+      "Sid": "ConfigurePharmaIntelStorage",
+      "Effect": "Allow",
+      "Action": [
+        "s3:PutBucketOwnershipControls",
+        "s3:PutBucketPolicy",
+        "s3:PutBucketPublicAccessBlock",
+        "s3:PutBucketTagging",
+        "s3:PutBucketVersioning",
+        "s3:PutEncryptionConfiguration",
+        "s3:PutLifecycleConfiguration"
+      ],
+      "Resource": [
+        "arn:aws:s3:::pharma-intel-staging-tfstate-<ACCOUNT_ID>-ap-south-1",
+        "arn:aws:s3:::pharma-intel-staging-sales-import-<ACCOUNT_ID>-ap-south-1"
+      ]
+    },
+    {
+      "Sid": "UseOnlyPharmaIntelTerraformStateObjects",
+      "Effect": "Allow",
+      "Action": [
+        "s3:GetObject",
+        "s3:GetObjectVersion",
+        "s3:PutObject"
+      ],
+      "Resource": [
+        "arn:aws:s3:::pharma-intel-staging-tfstate-<ACCOUNT_ID>-ap-south-1/bootstrap/terraform.tfstate",
+        "arn:aws:s3:::pharma-intel-staging-tfstate-<ACCOUNT_ID>-ap-south-1/environments/staging/terraform.tfstate"
+      ]
+    },
+    {
+      "Sid": "ManageOnlyPharmaIntelTerraformLockObjects",
+      "Effect": "Allow",
+      "Action": [
+        "s3:GetObject",
+        "s3:PutObject",
+        "s3:DeleteObject"
+      ],
+      "Resource": [
+        "arn:aws:s3:::pharma-intel-staging-tfstate-<ACCOUNT_ID>-ap-south-1/bootstrap/terraform.tfstate.tflock",
+        "arn:aws:s3:::pharma-intel-staging-tfstate-<ACCOUNT_ID>-ap-south-1/environments/staging/terraform.tfstate.tflock"
+      ]
+    },
+    {
+      "Sid": "CreateTaggedSingleRegionEncryptionKeys",
+      "Effect": "Allow",
+      "Action": "kms:CreateKey",
+      "Resource": "*",
+      "Condition": {
+        "StringEquals": {
+          "aws:RequestedRegion": "ap-south-1",
+          "aws:RequestTag/Project": "PharmaIntel",
+          "aws:RequestTag/Environment": "staging",
+          "aws:RequestTag/ManagedBy": "Terraform",
+          "kms:KeySpec": "SYMMETRIC_DEFAULT",
+          "kms:KeyUsage": "ENCRYPT_DECRYPT"
+        },
+        "Bool": {
+          "kms:MultiRegion": "false"
+        }
+      }
+    },
+    {
+      "Sid": "TagNewPharmaIntelEncryptionKeys",
+      "Effect": "Allow",
+      "Action": "kms:TagResource",
+      "Resource": "*",
+      "Condition": {
+        "StringEquals": {
+          "aws:RequestedRegion": "ap-south-1",
+          "aws:RequestTag/Project": "PharmaIntel",
+          "aws:RequestTag/Environment": "staging",
+          "aws:RequestTag/ManagedBy": "Terraform"
+        }
+      }
+    },
+    {
+      "Sid": "ManageTaggedPharmaIntelEncryptionKeys",
+      "Effect": "Allow",
+      "Action": [
+        "kms:CreateAlias",
+        "kms:DescribeKey",
+        "kms:EnableKeyRotation",
+        "kms:GetKeyPolicy",
+        "kms:GetKeyRotationStatus",
+        "kms:ListResourceTags",
+        "kms:PutKeyPolicy",
+        "kms:TagResource",
+        "kms:UntagResource",
+        "kms:UpdateAlias",
+        "kms:UpdateKeyDescription"
+      ],
+      "Resource": "arn:aws:kms:ap-south-1:<ACCOUNT_ID>:key/*",
+      "Condition": {
+        "StringEquals": {
+          "aws:ResourceTag/Project": "PharmaIntel",
+          "aws:ResourceTag/Environment": "staging",
+          "aws:ResourceTag/ManagedBy": "Terraform"
+        }
+      }
+    },
+    {
+      "Sid": "ManageOnlyPharmaIntelEncryptionAliases",
+      "Effect": "Allow",
+      "Action": [
+        "kms:CreateAlias",
+        "kms:UpdateAlias"
+      ],
+      "Resource": [
+        "arn:aws:kms:ap-south-1:<ACCOUNT_ID>:alias/pharma-intel/staging/terraform-state",
+        "arn:aws:kms:ap-south-1:<ACCOUNT_ID>:alias/pharma-intel/staging/sales-import"
+      ]
+    },
+    {
+      "Sid": "ListEncryptionAliasesInMumbai",
+      "Effect": "Allow",
+      "Action": "kms:ListAliases",
+      "Resource": "*",
+      "Condition": {
+        "StringEquals": {
+          "aws:RequestedRegion": "ap-south-1"
+        }
+      }
+    },
+    {
+      "Sid": "UseOnlyTheTerraformStateEncryptionKeyThroughS3",
+      "Effect": "Allow",
+      "Action": [
+        "kms:Decrypt",
+        "kms:Encrypt",
+        "kms:GenerateDataKey",
+        "kms:GenerateDataKeyWithoutPlaintext",
+        "kms:ReEncryptFrom",
+        "kms:ReEncryptTo"
+      ],
+      "Resource": "arn:aws:kms:ap-south-1:<ACCOUNT_ID>:key/*",
+      "Condition": {
+        "StringEquals": {
+          "aws:ResourceTag/Project": "PharmaIntel",
+          "aws:ResourceTag/Environment": "staging",
+          "aws:ResourceTag/ManagedBy": "Terraform",
+          "aws:ResourceTag/Purpose": "TerraformState",
+          "kms:CallerAccount": "<ACCOUNT_ID>",
+          "kms:EncryptionContext:aws:s3:arn": "arn:aws:s3:::pharma-intel-staging-tfstate-<ACCOUNT_ID>-ap-south-1",
+          "kms:ViaService": "s3.ap-south-1.amazonaws.com"
+        }
+      }
+    },
+    {
+      "Sid": "DenyDestructiveStorageActions",
+      "Effect": "Deny",
+      "Action": [
+        "s3:DeleteBucket",
+        "s3:DeleteBucketPolicy"
+      ],
+      "Resource": [
+        "arn:aws:s3:::pharma-intel-staging-tfstate-<ACCOUNT_ID>-ap-south-1",
+        "arn:aws:s3:::pharma-intel-staging-sales-import-<ACCOUNT_ID>-ap-south-1"
+      ]
+    },
+    {
+      "Sid": "DenyDestructiveEncryptionActions",
+      "Effect": "Deny",
+      "Action": [
+        "kms:DisableKey",
+        "kms:ScheduleKeyDeletion"
+      ],
+      "Resource": "arn:aws:kms:ap-south-1:<ACCOUNT_ID>:key/*",
+      "Condition": {
+        "StringEquals": {
+          "aws:ResourceTag/Project": "PharmaIntel",
+          "aws:ResourceTag/Environment": "staging",
+          "aws:ResourceTag/ManagedBy": "Terraform"
+        }
+      }
+    }
+  ]
+}

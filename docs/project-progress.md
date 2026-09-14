@@ -47,6 +47,13 @@ recommendations, support what-if scenarios, and provide Power BI reporting.
 - All 16 focused relationship tests passed against PostgreSQL.
 - All 30 focused Calendar and Sales tests passed against PostgreSQL.
 - The complete 67-test project suite passed against PostgreSQL.
+- The MFA-protected Terraform role has been verified against AWS.
+- The private, versioned, KMS-encrypted Terraform-state bucket is deployed in
+  `ap-south-1`; its local bootstrap state was migrated successfully to S3 and a
+  follow-up plan reported no changes.
+- The separate private, versioned, KMS-encrypted staging sales-import bucket is
+  deployed in `ap-south-1` from a reviewed plan containing nine additions and
+  no changes or deletions.
 
 ## Product master data
 
@@ -171,6 +178,8 @@ through Django Admin.
 | `scripts/configure_local_database.py` | Local database credential generation |
 | `scripts/check_database.py` | Database identity, privilege, and transaction check |
 | `scripts/configure_local_test_database.py` | Dedicated test-role configuration |
+| `scripts/render_aws_policy.py` | Renders reviewed IAM templates with the selected AWS account ID |
+| `scripts/configure_aws_profiles.py` | Connects the Keychain-backed bootstrap profile to the MFA-protected role |
 | `docs/architecture-decisions.md` | Stack, requirements, and open decisions |
 | `docs/decisions/0001-single-company-deployment.md` | Deployment-boundary decision |
 | `docs/local-testing.md` | Local PostgreSQL test design |
@@ -181,6 +190,11 @@ through Django Admin.
 | `docs/decisions/0002-effective-dated-master-data-relationships.md` | Historical-assignment decision |
 | `docs/business-data-foundation.md` | Calendar, Sales, and reporting rules |
 | `docs/decisions/0003-sales-transaction-grain.md` | Sales grain and attribution decision |
+| `infra/terraform/iam/` | Reviewed templates for the manually bootstrapped Terraform identity |
+| `infra/terraform/bootstrap/` | Creates protected remote-state storage before backend migration |
+| `infra/terraform/environments/staging/` | Creates the staging sales-import storage resources |
+| `infra/terraform/modules/secure_s3_bucket/` | Shared private, versioned, KMS-encrypted S3 configuration |
+| `docs/aws-storage-foundation.md` | AWS access, storage, encryption, and state-bootstrap design |
 
 ## Security separation
 

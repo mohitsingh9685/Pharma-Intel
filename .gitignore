@@ -10,3 +10,21 @@ __pycache__/
 
 # macOS metadata
 .DS_Store
+
+# Terraform local working data, private inputs, plans, and state
+**/.terraform/*
+*.tfstate
+*.tfstate.*
+*.tfvars
+*.tfvars.json
+*.tfplan
+*.s3.tfbackend
+crash.log
+crash.*.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+infra/terraform/bootstrap/backend.tf
+!*.tfvars.example
+!*.s3.tfbackend.example
