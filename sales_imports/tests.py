@@ -7,6 +7,7 @@ from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
 from django.core.management import call_command
+from django.core.management.base import CommandError
 from django.core.exceptions import ValidationError
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db import IntegrityError, transaction
@@ -27,6 +28,9 @@ from .storage import (
     StoredOriginalFile,
 )
 from .validation import inspect_sales_file
+
+
+TEST_KMS_KEY_ARN = "arn:aws:kms:ap-south-1:123456789012:key/sales-import-test"
 
 
 def csv_upload(
@@ -55,6 +59,7 @@ def xlsx_upload(*, extra_members=None):
 
 class RecordingOriginalFileStorage:
     bucket_name = "private-sales-imports"
+    kms_key_arn = TEST_KMS_KEY_ARN
 
     def __init__(self, *, version_id="version-1", error=None):
         self.version_id = version_id
@@ -274,6 +279,7 @@ class SalesImportServiceTests(TestCase):
         self.assertIsNone(sales_import.failed_at)
         self.assertEqual(sales_import.failure_code, SalesImport.FailureCode.NONE)
         self.assertEqual(sales_import.storage_bucket, storage.bucket_name)
+        self.assertEqual(sales_import.storage_kms_key_arn, storage.kms_key_arn)
         self.assertEqual(
             sales_import.storage_key,
             (
@@ -385,6 +391,33 @@ class SalesImportServiceTests(TestCase):
         self.assertEqual(duplicate.sales_import.pk, first.sales_import.pk)
         self.assertEqual(unused_storage.calls, [])
         self.assertEqual(SalesImport.objects.count(), 1)
+
+    def test_permanently_unusable_object_allows_same_file_to_be_uploaded_again(self):
+        first_file = csv_upload()
+        inspection = inspect_sales_file(first_file, max_bytes=10_000)
+        first = receive_sales_import(
+            uploaded_file=first_file,
+            inspection=inspection,
+            source_system="ERP",
+            uploaded_by=self.administrator,
+            storage=RecordingOriginalFileStorage(version_id="bad-version"),
+        )
+        first.sales_import.mark_stored_object_failed(
+            failure_code=SalesImport.FailureCode.VERIFICATION_FAILED
+        )
+        replacement_file = csv_upload()
+
+        replacement = receive_sales_import(
+            uploaded_file=replacement_file,
+            inspection=inspect_sales_file(replacement_file, max_bytes=10_000),
+            source_system="ERP",
+            uploaded_by=self.administrator,
+            storage=RecordingOriginalFileStorage(version_id="replacement-version"),
+        )
+
+        self.assertTrue(replacement.created)
+        self.assertNotEqual(replacement.sales_import.pk, first.sales_import.pk)
+        self.assertEqual(SalesImport.objects.count(), 2)
 
 
 class S3OriginalFileStorageTests(TestCase):
@@ -551,6 +584,18 @@ class S3OriginalFileStorageTests(TestCase):
         ):
             S3OriginalFileStorage()
 
+    def test_storage_rejects_kms_alias_instead_of_resolved_key_arn(self):
+        with self.assertRaisesMessage(
+            OriginalFileStorageError,
+            "concrete KMS key ARN",
+        ):
+            S3OriginalFileStorage(
+                client=FakeS3Client(),
+                bucket_name=self.bucket_name,
+                kms_key_arn="alias/pharma-intel/staging/sales-import",
+                region_name="ap-south-1",
+            )
+
 
 class SalesImportAuditGuardTests(TestCase):
     @classmethod
@@ -572,6 +617,7 @@ class SalesImportAuditGuardTests(TestCase):
             size_bytes=len(content),
             sha256=hashlib.sha256(content).hexdigest(),
             storage_bucket="private-sales-imports",
+            storage_kms_key_arn=TEST_KMS_KEY_ARN,
             storage_key=storage_key,
             uploaded_by=self.administrator,
         )
@@ -612,6 +658,52 @@ class SalesImportAuditGuardTests(TestCase):
         with self.assertRaises(IntegrityError), transaction.atomic():
             SalesImport.objects.filter(pk=sales_import.pk).delete()
 
+    def test_database_rejects_kms_lineage_update(self):
+        sales_import = self.create_receiving_import()
+
+        with self.assertRaises(IntegrityError), transaction.atomic():
+            SalesImport.objects.filter(pk=sales_import.pk).update(
+                storage_kms_key_arn=(
+                    "arn:aws:kms:ap-south-1:123456789012:key/replacement"
+                )
+            )
+
+    def test_database_preserves_received_storage_evidence_when_marking_failed(self):
+        sales_import = self.create_receiving_import()
+        sales_import.mark_received(version_id="verified-version")
+
+        with self.assertRaises(IntegrityError), transaction.atomic():
+            SalesImport.objects.filter(pk=sales_import.pk).update(
+                status=SalesImport.Status.FAILED,
+                storage_version_id="different-version",
+                received_at=timezone.now() + timedelta(seconds=1),
+                failed_at=timezone.now(),
+                failure_code=SalesImport.FailureCode.VERIFICATION_FAILED,
+            )
+
+    def test_database_rejects_fabricated_evidence_on_receiving_failure(self):
+        sales_import = self.create_receiving_import()
+
+        with self.assertRaises(IntegrityError), transaction.atomic():
+            SalesImport.objects.filter(pk=sales_import.pk).update(
+                status=SalesImport.Status.FAILED,
+                storage_version_id="fabricated-version",
+                received_at=timezone.now(),
+                failed_at=timezone.now(),
+                failure_code=SalesImport.FailureCode.VERIFICATION_FAILED,
+            )
+
+    def test_database_restricts_post_receipt_failure_codes(self):
+        sales_import = self.create_receiving_import()
+        sales_import.mark_received(version_id="verified-version")
+
+        with self.assertRaises(IntegrityError), transaction.atomic():
+            SalesImport.objects.filter(pk=sales_import.pk).update(
+                status=SalesImport.Status.FAILED,
+                failed_at=timezone.now(),
+                failure_code=SalesImport.FailureCode.STORAGE_ERROR,
+            )
+
     def test_database_rejects_duplicate_active_file(self):
         existing = self.create_receiving_import()
 
@@ -624,6 +716,7 @@ class SalesImportAuditGuardTests(TestCase):
                 size_bytes=existing.size_bytes,
                 sha256=existing.sha256,
                 storage_bucket="private-sales-imports",
+                storage_kms_key_arn=TEST_KMS_KEY_ARN,
                 storage_key="sales-imports/duplicate.csv",
                 uploaded_by=self.administrator,
             )
@@ -645,6 +738,7 @@ class SalesImportAuditGuardTests(TestCase):
                 size_bytes=sales_import.size_bytes,
                 sha256=sales_import.sha256,
                 storage_bucket="private-sales-imports",
+                storage_kms_key_arn=TEST_KMS_KEY_ARN,
                 storage_key="sales-imports/unknown.csv",
                 uploaded_by=self.administrator,
             )
@@ -670,6 +764,7 @@ class ReconcileSalesImportsTests(TestCase):
             size_bytes=len(content),
             sha256=hashlib.sha256(content).hexdigest(),
             storage_bucket="private-sales-imports",
+            storage_kms_key_arn=TEST_KMS_KEY_ARN,
             storage_key=storage_key,
             uploaded_by=self.administrator,
         )
@@ -685,7 +780,7 @@ class ReconcileSalesImportsTests(TestCase):
                 raise self.outcome
             return StoredOriginalFile(version_id=self.outcome)
 
-    def run_reconcile(self, outcome):
+    def run_reconcile(self, outcome, *, expect_deferred_error=False):
         storage = self.ReconciliationStorage(outcome)
         with (
             patch(
@@ -699,7 +794,14 @@ class ReconcileSalesImportsTests(TestCase):
                 return_value=timezone.now() + timedelta(minutes=30),
             ),
         ):
-            call_command("reconcile_sales_imports", older_than_minutes=15)
+            if expect_deferred_error:
+                with self.assertRaisesMessage(
+                    CommandError,
+                    "1 deferred for retry",
+                ):
+                    call_command("reconcile_sales_imports", older_than_minutes=15)
+            else:
+                call_command("reconcile_sales_imports", older_than_minutes=15)
         return storage
 
     def test_reconcile_marks_verified_object_received(self):
@@ -722,6 +824,7 @@ class ReconcileSalesImportsTests(TestCase):
                     "import_id": str(sales_import.pk),
                     "data_contract": sales_import.data_contract,
                     "row_contract": sales_import.row_contract,
+                    "expected_kms_key_arn": sales_import.storage_kms_key_arn,
                 }
             ],
         )
@@ -752,7 +855,10 @@ class ReconcileSalesImportsTests(TestCase):
     def test_reconcile_defers_transient_storage_errors(self):
         sales_import = self.create_receiving_import()
 
-        self.run_reconcile(OriginalFileStorageError("temporary outage"))
+        self.run_reconcile(
+            OriginalFileStorageError("temporary outage"),
+            expect_deferred_error=True,
+        )
 
         sales_import.refresh_from_db()
         self.assertEqual(sales_import.status, SalesImport.Status.RECEIVING)

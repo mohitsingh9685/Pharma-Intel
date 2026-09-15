@@ -2,9 +2,11 @@ from datetime import timedelta
 
 from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
+from django.db import transaction
 from django.utils import timezone
 
 from sales_imports.models import SalesImport
+from sales_imports.queue import enqueue_import
 from sales_imports.storage import (
     OriginalFileNotFoundError,
     OriginalFileStorageError,
@@ -52,6 +54,7 @@ class Command(BaseCommand):
                     import_id=str(sales_import.pk),
                     data_contract=sales_import.data_contract,
                     row_contract=sales_import.row_contract,
+                    expected_kms_key_arn=sales_import.storage_kms_key_arn,
                 )
             except OriginalFileNotFoundError:
                 if self._mark_failed(
@@ -69,22 +72,30 @@ class Command(BaseCommand):
                 deferred += 1
             else:
                 try:
-                    sales_import.mark_received(version_id=stored.version_id)
+                    with transaction.atomic():
+                        sales_import.mark_received(version_id=stored.version_id)
+                        enqueue_import(sales_import)
                 except RuntimeError:
                     continue
                 received += 1
 
-        self.stdout.write(
-            self.style.SUCCESS(
-                f"Reconciled imports: {received} received, {failed} failed, "
-                f"{deferred} deferred for retry."
-            )
+        summary = (
+            f"Reconciled imports: {received} received, {failed} failed, "
+            f"{deferred} deferred for retry."
         )
+        if deferred:
+            raise CommandError(
+                f"{summary} S3 could not be reached; run reconciliation again "
+                "after storage recovers."
+            )
+        self.stdout.write(self.style.SUCCESS(summary))
 
     @staticmethod
     def _mark_failed(sales_import, failure_code):
         try:
-            sales_import.mark_failed(failure_code=failure_code)
+            with transaction.atomic():
+                sales_import.mark_failed(failure_code=failure_code)
+                enqueue_import(sales_import)
         except RuntimeError:
             return False
         return True

@@ -1,4 +1,5 @@
 from django.conf import settings
+from django.core.exceptions import TooManyFilesSent
 from django.core.files.uploadhandler import FileUploadHandler, StopUpload
 
 
@@ -8,9 +9,13 @@ class BoundedFileUploadHandler(FileUploadHandler):
     def __init__(self, request=None):
         super().__init__(request)
         self._request_file_bytes = 0
+        self._file_count = 0
 
     def new_file(self, *args, **kwargs):
         super().new_file(*args, **kwargs)
+        self._file_count += 1
+        if self._file_count > 1:
+            raise TooManyFilesSent("A sales import accepts exactly one file.")
         if (
             self.content_length is not None
             and self.content_length > settings.SALES_IMPORT_MAX_UPLOAD_BYTES

@@ -9,10 +9,14 @@ The repository contains the Django/PostgreSQL foundation, email-based users,
 master data with effective-dated relationships, a reporting Calendar dimension,
 immutable source-line Sales facts, and the administrator-facing sales-file
 intake. The versioned `sales_rows_v1` contract, streaming CSV value parser, and
-deterministic local demo data are also implemented. Django 6.1.1, PostgreSQL
-18.6, and psycopg 3.3.5 are verified locally. Background ingestion, XLSX row
-parsing, analytics, workers, dashboards, deployment, and measurable capacity
-targets remain future milestones, so this is not yet a production deployment.
+deterministic local demo data are implemented. Received CSV files now enter a
+durable PostgreSQL queue; leased workers validate and stage every row before an
+all-or-nothing, idempotent Sales publish. Each intake retains its exact S3
+version, checksum, and KMS key as immutable audit evidence. Django 6.1.1,
+PostgreSQL 18.6, and
+psycopg 3.3.5 are verified locally. XLSX row parsing, analytics, dashboards,
+deployment, and measurable capacity targets remain future milestones, so this
+is not yet a production deployment.
 
 See [the architecture decisions](docs/architecture-decisions.md) for the agreed
 scope and open questions, including company isolation and expected capacity.
@@ -102,8 +106,16 @@ needed by the deterministic sales sample:
 ```
 
 It creates or verifies `samples/sales/sales_rows_v1_demo.csv`. Submit that file
-through the sales-import page with source system `DEMO-ERP`. This exercises the
-original-file intake; background row ingestion is not connected yet.
+through the sales-import page with source system `DEMO-ERP`. After the original
+is received, a configured worker processes one queued import with:
+
+```bash
+.venv/bin/python manage.py process_sales_imports --max-jobs 1
+```
+
+The detail page shows whether all ten rows were published or which validation
+issues rejected the complete file. The command needs the deployment runtime's
+S3/KMS credentials; do not run application processing with the Terraform role.
 
 ## File connections
 
@@ -122,13 +134,19 @@ original-file intake; background row ingestion is not connected yet.
 | `accounts/` | Email-based users, roles, forms, Admin, and tests |
 | `master_data/` | Commercial identities and effective-dated relationships |
 | `business_data/` | Reporting Calendar and immutable source-line Sales facts |
-| `sales_imports/` | Original-file intake, the V1 row contract, CSV validation, S3 storage, audit, and recovery |
+| `sales_imports/` | Intake, durable queue, CSV validation/staging, S3 storage, atomic Sales publish, audit, and recovery |
 | `sales_imports/contracts.py` | Exact `sales_rows_v1` columns and database-independent CSV row validation |
+| `sales_imports/queue.py` | Concurrent job claims, leases, fencing, retries, and attempt history |
+| `sales_imports/processing.py` | Exact-version download, reference validation, and all-or-nothing publication |
 | `sales_imports/synthetic.py` | Deterministic V1 demonstration rows and CSV bytes |
 | `sales_imports/management/commands/prepare_sales_demo.py` | Safe local master-data and sample-file preparation |
+| `sales_imports/management/commands/process_sales_imports.py` | Processes a bounded number of queued CSV jobs |
+| `sales_imports/management/commands/retry_sales_import.py` | Requeues a recoverable terminal CSV job without deleting its audit history |
+| `sales_imports/management/commands/backfill_sales_import_kms.py` | Verifies and records a legacy import's exact historical KMS key |
 | `samples/sales/sales_rows_v1_demo.csv` | Canonical ten-row demonstration file |
 | `docs/business-data-foundation.md` | Calendar population and Sales data rules |
 | `docs/sales-import-intake.md` | Sales-file intake flow, safeguards, and recovery behavior |
+| `docs/sales-import-processing.md` | Durable worker, validation, retry, and publication behavior |
 | `docs/decisions/0004-sales-file-row-contract.md` | Versioned Sales row schema and atomic import decision |
 | `.env.example` | Shareable example of the required local configuration |
 | `AGENTS.md` | Learning workflow and engineering standards |

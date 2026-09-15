@@ -110,7 +110,7 @@ KMS keys have a small ongoing AWS charge even when the buckets are empty.
 
 - retention duration for original uploads and old versions;
 - maximum upload size and expected upload frequency;
-- background queue and worker runtime;
+- supervised worker deployment and measurable recovery targets;
 - deployed Django/worker identity that may use the sales-import key;
 - production account and production retention/recovery requirements.
 

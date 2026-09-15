@@ -4,8 +4,9 @@
 
 Administrators can submit an original UTF-8 CSV or structurally screened `.xlsx`
 sales file.
-This milestone stores and audits the original file; it does not yet turn file
-rows into `SalesTransaction` records.
+The request stores and audits the original file. A separate durable worker then
+validates received CSV rows and publishes the whole accepted file as
+`SalesTransaction` records.
 
 ```text
 Administrator
@@ -14,11 +15,16 @@ Administrator
   -> private S3 object encrypted with the staging KMS key
   -> S3 size, checksum metadata, encryption, and version verification
   -> SalesImport status becomes received
+  -> durable processing job becomes queued
+  -> worker downloads that exact S3 object version
+  -> rows and issues are staged and validated in PostgreSQL
+  -> all rows pass: publish every row in one transaction
+  -> any row fails: publish no facts and retain reviewable issues
 ```
 
 PostgreSQL stores the import reference, source system, original filename,
-format, byte count, SHA-256 checksum, uploader, S3 location and version, intake
-contract, row contract, status, and timestamps. S3 stores the original file
+format, byte count, SHA-256 checksum, uploader, S3 location, version, exact KMS
+key ARN, intake contract, row contract, status, and timestamps. S3 stores the original file
 bytes and both contract identifiers as object metadata. The custom intake pages
 do not expose the S3 key, bucket, checksum, or a public download URL.
 
@@ -57,11 +63,12 @@ It rejects duplicate source record IDs within one file after trimming. File-leve
 schema, row-limit, empty-file, and malformed-CSV problems stop parsing; value
 problems are returned with their physical CSV row number and stable issue code.
 
-This parser performs database-independent syntax and value validation. It does
-not yet resolve master-data codes, check dated assignments, stage rows, or write
-`SalesTransaction` records. The upload request also does not run it yet. A
-background ingestion worker will perform those steps. `.xlsx` row parsing remains
-future work; Excel uploads currently receive only the bounded package pre-screen.
+This parser performs database-independent syntax and value validation. The
+background worker uses it before resolving master-data codes, checking dated
+assignments, staging rows, and publishing `SalesTransaction` records. The web
+upload request does not perform that work, so large files do not occupy a web
+request. `.xlsx` row parsing remains future work; a safely stored Excel import
+waits in `awaiting_parser` and creates no Sales facts.
 
 ## Safety and recovery
 
@@ -81,7 +88,8 @@ happen before a row is created.
 
 An upload first creates a `receiving` row, commits it, then performs S3 network
 I/O without holding a database transaction open. A successful upload is marked
-`received`. Any uncertain write or confirmation failure stays `receiving`
+`received` and its processing job becomes `queued` for CSV or `awaiting_parser`
+for XLSX. Any uncertain write or confirmation failure stays `receiving`
 because a network error can occur after S3 accepted the bytes. The reconciliation
 command checks older rows and either recovers their S3 version, records a
 missing/invalid object, or leaves a transient AWS error for a later retry. It
@@ -89,15 +97,18 @@ verifies the recorded bucket, S3 checksum, size, encryption key, object version,
 import reference, intake-envelope metadata, and row-contract metadata.
 
 PostgreSQL constraints enforce normalized lineage values and consistent status
-metadata. A row trigger permits only `receiving` to `received` or `failed` and
-rejects ordinary SQL `UPDATE` and `DELETE` attempts that bypass Django. The
+metadata. A row trigger permits `receiving` to become `received` or `failed`,
+and permits a `received` intake to become `failed` only when its exact stored
+version is later proved missing or invalid. The original storage evidence stays
+immutable, and ordinary SQL `UPDATE` and `DELETE` attempts are rejected. The
 production runtime role must not own the table or receive `TRUNCATE`, trigger,
 or schema-changing privileges; migrations use a separate deployment identity.
 
 ## Configuration and operations
 
-The application reads the S3 bucket, KMS key ARN, region, upload ceiling, and
-reconciliation grace period from environment settings. AWS access keys are not
+The application reads the S3 bucket, KMS key ARN, region, upload ceiling,
+reconciliation grace period, and bounded source-lock wait from environment
+settings. AWS access keys are not
 application settings. boto3 uses its normal credential chain, which will obtain
 temporary credentials from the deployment's dedicated application/worker role.
 That runtime role depends on the still-open hosting decision and must not reuse
@@ -109,10 +120,19 @@ The reconciliation operation is:
 .venv/bin/python manage.py reconcile_sales_imports
 ```
 
-Until the deployment worker/scheduler milestone, an operator must run this
-command after an interrupted or uncertain S3 upload. Deployment must schedule
-it, monitor failures, and grant the runtime role `HeadObject` checksum access
-plus the required KMS decrypt permission.
+The bounded worker operation is:
+
+```bash
+.venv/bin/python manage.py process_sales_imports --max-jobs 10
+```
+
+`--max-jobs` limits how many available jobs one invocation claims before it
+exits; the default is one. Multiple worker processes may run concurrently.
+Production deployment must run both operations on a monitored schedule or
+worker service. Its dedicated runtime role needs access to the exact S3 object
+version, checksum data, and the KMS key; it must not reuse the Terraform role.
+See [durable sales-import processing](sales-import-processing.md) for queue,
+retry, validation, and publish behavior.
 
 ## Deterministic local demo
 
@@ -133,9 +153,7 @@ The sample includes ordinary sales, a free sale, returns, and rows that omit one
 or both optional dimensions. Re-running the command reuses exact matching data
 and an identical file. It refuses conflicting records or a different file at
 the requested output path, and it is disabled when `DJANGO_DEBUG` is false. The
-command prepares data and a file; it does not upload the file or create Sales
-facts.
-
-The next ingestion milestone will add a durable background worker, database-
-backed master-data validation, staged row lineage and issue storage, and
-idempotent insertion of accepted `SalesTransaction` rows.
+command prepares data and a file; it does not upload or process the file by
+itself. Submit the generated CSV with source system `DEMO-ERP`, then run the
+processing worker. A successful first run inserts ten facts; processing the
+same source rows again reuses identical facts instead of duplicating them.

@@ -6,6 +6,7 @@ from django.db import IntegrityError, transaction
 from django.utils import timezone
 
 from .models import SalesImport
+from .queue import enqueue_import
 from .storage import OriginalFileStorageError, get_sales_import_storage
 from .validation import InspectedSalesFile, normalized_filename
 
@@ -52,6 +53,7 @@ def receive_sales_import(
         sha256=inspection.sha256,
     )
     if existing is not None:
+        enqueue_import(existing)
         return SalesImportIntakeResult(sales_import=existing, created=False)
 
     storage = storage or get_sales_import_storage()
@@ -72,9 +74,11 @@ def receive_sales_import(
                 size_bytes=inspection.size_bytes,
                 sha256=inspection.sha256,
                 storage_bucket=storage.bucket_name,
+                storage_kms_key_arn=storage.kms_key_arn,
                 storage_key=object_key,
                 uploaded_by=uploaded_by,
             )
+            enqueue_import(sales_import)
     except IntegrityError:
         existing = _existing_active_import(
             source_system=source_system,
@@ -101,6 +105,8 @@ def receive_sales_import(
             import_id,
         )
     else:
-        sales_import.mark_received(version_id=stored.version_id)
+        with transaction.atomic():
+            sales_import.mark_received(version_id=stored.version_id)
+            enqueue_import(sales_import)
 
     return SalesImportIntakeResult(sales_import=sales_import, created=True)

@@ -1,6 +1,6 @@
 # Pharma Intel project progress
 
-Last updated: 2026-09-14
+Last updated: 2026-09-15
 
 ## Product goal
 
@@ -14,7 +14,8 @@ recommendations, support what-if scenarios, and provide Power BI reporting.
   administration, uploads, and business workflows.
 - PostgreSQL stores application and business data.
 - Docker Compose runs PostgreSQL during local development.
-- Python workers will later handle long-running imports and analytics.
+- A PostgreSQL-backed Python worker handles durable CSV imports; later workers
+  will handle analytics.
 - Power BI will later provide business dashboards.
 - Version 1 uses one company per application and database deployment.
 
@@ -58,13 +59,26 @@ recommendations, support what-if scenarios, and provide Power BI reporting.
 - The administrator-only sales-import intake, immutable PostgreSQL audit row,
   bounded CSV/XLSX pre-screen, S3/KMS storage adapter, duplicate guard, and
   interrupted-upload reconciliation command are implemented.
-- All three sales-import migrations applied successfully, Django reported no
-  system issues, migration state reported no pending model changes, and all 38
-  focused sales-import tests passed against PostgreSQL. The S3 tests use a
-  strict fake; a live runtime-role integration check remains part of deployment.
+- All eight sales-import migrations applied successfully, Django reported no
+  system issues, migration state reported no pending model changes, and the
+  complete 175-test suite passed against PostgreSQL. The S3 tests use a strict
+  fake; a live runtime-role integration check remains part of deployment.
 - The database-independent `sales_rows_v1` streaming CSV parser, deterministic
   ten-row demo CSV, and idempotent development-only demo setup command are
   implemented and verified.
+- The durable sales-import queue, leased attempts, staged normalized rows,
+  persisted validation issues, exact-version S3 download, database reference
+  checks, and all-or-nothing Sales publication are implemented.
+- Concurrent workers claim different jobs with `SKIP LOCKED`; expiring leases,
+  fencing tokens, heartbeats, bounded retries, and attempt history protect work
+  from duplicate or stale completion.
+- Each intake records its exact KMS key ARN, so key rotation does not change the
+  evidence used to verify older files. A missing or invalid exact S3 version
+  permanently fails the intake while preserving its lineage and allows a fresh
+  replacement upload.
+- The sales-import list and detail pages show separate intake and processing
+  status, row counts, latest-attempt errors, and paginated validation issues
+  without exposing private S3 lineage.
 
 ## Product master data
 
@@ -120,10 +134,10 @@ correction workflows are implemented.
 
 An Administrator can submit one bounded CSV or XLSX original through the Django
 application. PostgreSQL records its uploader, source, format, size, SHA-256,
-private S3 location/version, intake contract, row contract, status, and
+private S3 location/version, exact KMS key ARN, intake contract, row contract, status, and
 timestamps. S3 stores the original with the staging KMS key, object versioning,
 checksum, and both contract identifiers as lineage metadata. The web request
-does not parse rows or create Sales facts.
+does not parse rows; a received CSV is queued for the separate worker.
 
 Duplicate active originals for the same source are prevented by PostgreSQL. An
 uncertain S3 response remains `receiving`; `reconcile_sales_imports` checks the
@@ -133,9 +147,12 @@ IAM role and a scheduler for this recovery command.
 
 `sales_rows_v1` defines nine exact sales columns and bounded syntax/value rules.
 Its CSV parser streams rows, returns stable issue codes, and reports physical
-file line numbers without querying PostgreSQL. The accepted ingestion policy is
-to validate an entire file and publish accepted facts atomically; durable job,
-row-result, and database-reference validation models are the next milestone.
+file line numbers. The worker downloads the recorded S3 version, stages valid
+rows, persists bounded issue details, resolves Calendar and master-data codes,
+checks dated Territory assignments, and publishes only after the entire file
+passes. Identical existing facts are reused; a conflicting source record rejects
+the whole file. XLSX remains securely stored in `awaiting_parser` until its row
+parser is implemented.
 
 ## Configuration flow
 
@@ -156,6 +173,10 @@ Browser
     -> bounded file inspection + SHA-256
     -> SalesImport audit row in PostgreSQL
     -> original bytes in private S3 with KMS encryption
+    -> SalesImportJob in PostgreSQL
+    -> process_sales_imports worker
+    -> exact-version download + staged validation
+    -> atomic SalesTransaction publication or persisted rejection issues
 ```
 
 ## Generated values and data
@@ -205,17 +226,26 @@ year ranges beyond this narrow demonstration fixture.
 | `business_data/tests.py` | Sales integrity and lifecycle tests |
 | `business_data/test_calendar.py` | Calendar generation and command tests |
 | `business_data/test_validation.py` | Dated Sales dimension-validation tests |
-| `sales_imports/models.py` | Immutable original-file audit record and status transitions |
+| `sales_imports/models.py` | Intake audit, durable job/attempt, staged row, and issue records |
 | `sales_imports/validation.py` | Bounded CSV/XLSX intake pre-screen and SHA-256 calculation |
 | `sales_imports/contracts.py` | Versioned CSV columns, typed rows, and streaming value validation |
 | `sales_imports/synthetic.py` | Deterministic demonstration Sales rows and CSV generation |
-| `sales_imports/storage.py` | Private versioned S3/KMS upload and verification contract |
+| `sales_imports/storage.py` | Private versioned S3/KMS upload and exact-version verified download |
 | `sales_imports/services.py` | Duplicate-safe intake orchestration outside long database transactions |
+| `sales_imports/queue.py` | Concurrent claims, leases, fencing, retries, and terminal job transitions |
+| `sales_imports/processing.py` | Staging, database validation, idempotency, and atomic Sales publication |
 | `sales_imports/management/commands/prepare_sales_demo.py` | Safe local demo master data and sample CSV preparation |
+| `sales_imports/management/commands/process_sales_imports.py` | Processes a bounded batch of queued CSV imports |
+| `sales_imports/management/commands/retry_sales_import.py` | Safely requeues a recoverable terminal CSV job while preserving attempts |
+| `sales_imports/management/commands/backfill_sales_import_kms.py` | Verifies and records exact KMS provenance for legacy stored imports |
 | `sales_imports/management/commands/reconcile_sales_imports.py` | Recovery for uncertain S3 outcomes |
 | `sales_imports/tests.py` | Intake permissions, limits, storage, recovery, and database-integrity tests |
 | `sales_imports/test_contract.py` | Fast row-contract and canonical-sample tests |
 | `sales_imports/test_demo_command.py` | Demo setup integration and idempotency tests |
+| `sales_imports/test_queue.py` | Queue, lease, retry, stale-worker, and concurrent-claim tests |
+| `sales_imports/test_storage_download.py` | Exact-version S3 download and integrity tests |
+| `sales_imports/test_processing_ui.py` | Processing status and issue-visibility tests |
+| `sales_imports/test_processing_audit_guards.py` | Database-level processing audit immutability tests |
 | `samples/sales/sales_rows_v1_demo.csv` | Canonical ten-row demonstration upload |
 | `docker/postgres/init-app.sql` | Initial local database and application role |
 | `scripts/create_local_env.py` | Local Django secret generation |
@@ -235,6 +265,7 @@ year ranges beyond this narrow demonstration fixture.
 | `docs/business-data-foundation.md` | Calendar, Sales, and reporting rules |
 | `docs/decisions/0003-sales-transaction-grain.md` | Sales grain and attribution decision |
 | `docs/decisions/0004-sales-file-row-contract.md` | Sales-file schema, retry, and atomic-publish decision |
+| `docs/sales-import-processing.md` | Worker queue, validation, retry, and publish behavior |
 | `infra/terraform/iam/` | Reviewed templates for the manually bootstrapped Terraform identity |
 | `infra/terraform/bootstrap/` | Creates protected remote-state storage before backend migration |
 | `infra/terraform/environments/staging/` | Creates the staging sales-import storage resources |
@@ -253,8 +284,7 @@ person can do inside Pharma Intel. These are separate layers:
 
 ## Remaining work
 
-The master-data foundation, Calendar, Sales, original-file intake, and V1 CSV
-row contract are represented. Database-backed import validation and lineage,
-durable background processing, XLSX row parsing, other business facts, the Sales
-correction workflow, analytics, scoring, scenarios, deployment, and Power BI
-integration remain future work.
+The master-data foundation, Calendar, Sales, original-file intake, and durable
+V1 CSV processing are represented. XLSX row parsing, a deployed worker/runtime
+IAM role, other business facts, the Sales correction workflow, analytics,
+scoring, scenarios, deployment, and Power BI integration remain future work.

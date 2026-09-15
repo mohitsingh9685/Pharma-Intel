@@ -31,8 +31,11 @@
   <body>
     <header>
       <nav>
-        <strong>Pharma Intel</strong>
+        <strong><a href="{% url 'home' %}">Pharma Intel</a></strong>
         {% if user.is_authenticated %}
+          {% if user.is_staff %}
+            <a href="{% url 'admin:index' %}">Admin panel</a>
+          {% endif %}
           {% if user.role == "admin" %}
             <a href="{% url 'sales_imports:list' %}">Sales imports</a>
             <a href="{% url 'sales_imports:create' %}">Upload</a>

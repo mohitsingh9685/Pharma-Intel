@@ -178,17 +178,21 @@ SALES_IMPORT_MAX_ROWS = positive_integer_setting(
     "SALES_IMPORT_MAX_ROWS",
     default=250_000,
 )
+SALES_IMPORT_DB_BATCH_SIZE = positive_integer_setting(
+    "SALES_IMPORT_DB_BATCH_SIZE",
+    default=1_000,
+)
+SALES_IMPORT_MAX_ISSUES = positive_integer_setting(
+    "SALES_IMPORT_MAX_ISSUES",
+    default=10_000,
+)
+SALES_IMPORT_SOURCE_LOCK_WAIT_SECONDS = positive_integer_setting(
+    "SALES_IMPORT_SOURCE_LOCK_WAIT_SECONDS",
+    default=300,
+)
 
 # Files over 1 MiB are spooled to disk instead of occupying web-worker memory.
 FILE_UPLOAD_MAX_MEMORY_SIZE = min(SALES_IMPORT_MAX_UPLOAD_BYTES, 1024 * 1024)
-# This endpoint accepts one original file. Reject extra multipart file parts
-# before Django spends disk and parsing work on fields the form will ignore.
-DATA_UPLOAD_MAX_NUMBER_FILES = 1
-FILE_UPLOAD_HANDLERS = [
-    "sales_imports.upload_handlers.BoundedFileUploadHandler",
-    "django.core.files.uploadhandler.MemoryFileUploadHandler",
-    "django.core.files.uploadhandler.TemporaryFileUploadHandler",
-]
 
 SALES_IMPORT_AWS_REGION = os.environ.get(
     "SALES_IMPORT_AWS_REGION",

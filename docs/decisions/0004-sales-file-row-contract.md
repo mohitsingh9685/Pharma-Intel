@@ -26,15 +26,15 @@ required. The detailed text, date, decimal, sign, normalization, and size rules
 are recorded in `docs/sales-import-intake.md` and implemented by the streaming
 CSV contract parser.
 
-Processing will use an all-or-nothing publish rule. A worker will validate the
+Processing uses an all-or-nothing publish rule. A worker validates the
 whole file, including database-backed master-data and effective-date checks,
-before inserting Sales facts. If any row is invalid, it will persist the import
-and validation results but insert no Sales facts from that file.
+before inserting Sales facts. If any row is invalid, it persists the import
+and validation results but inserts no Sales facts from that file.
 
 Duplicate source IDs inside one file invalidate the file. When a retry meets an
 existing `(source_system, source_record_id)` Sales fact, an identical normalized
-row will be treated as already applied; different values will be a conflict and
-will reject the batch. The final publish will occur in one database transaction.
+row is treated as already applied; different values are a conflict and reject
+the batch. The final publish occurs in one database transaction.
 
 The implemented parser covers CSV. An Excel parser may use the same logical V1
 fields later, but an uploaded `.xlsx` file is not currently row-processed.
@@ -44,6 +44,5 @@ fields later, but an uploaded `.xlsx` file is not currently row-processed.
 - Storage format and business-row format can evolve independently.
 - Dashboards cannot observe half of an invalid batch.
 - Retry behavior is deterministic and cannot rewrite immutable Sales facts.
-- Validation results and worker orchestration still require separate durable
-  models before uploaded rows can be published.
-
+- Durable jobs, fenced attempts, staged rows, and persisted issues provide an
+  auditable path from each original file to its publication result.

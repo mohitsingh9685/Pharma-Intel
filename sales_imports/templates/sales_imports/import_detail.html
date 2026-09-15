@@ -4,7 +4,8 @@
 
 {% block content %}
   <h1>Sales import</h1>
-  <div class="card">
+  <section class="card">
+    <h2>File intake</h2>
     <dl>
       <dt>Reference</dt><dd>{{ sales_import.pk }}</dd>
       <dt>File</dt><dd>{{ sales_import.original_filename }}</dd>
@@ -12,16 +13,109 @@
       <dt>Format</dt><dd>{{ sales_import.get_file_format_display }}</dd>
       <dt>Row contract</dt><dd>{{ sales_import.get_row_contract_display }}</dd>
       <dt>Size</dt><dd>{{ sales_import.size_bytes|filesizeformat }}</dd>
-      <dt>Status</dt><dd class="status">{{ sales_import.get_status_display }}</dd>
+      <dt>Intake status</dt><dd class="status">{{ sales_import.get_status_display }}</dd>
       <dt>Uploader</dt><dd>{{ sales_import.uploaded_by.email }}</dd>
       <dt>Submitted</dt><dd>{{ sales_import.created_at }}</dd>
     </dl>
     {% if sales_import.status == "received" %}
-      <p>The original file is stored. Row validation has not started yet.</p>
+      <p>The original file is stored securely.</p>
     {% elif sales_import.status == "receiving" %}
       <p>The upload is awaiting storage confirmation.</p>
     {% else %}
       <p>Storage failed. Use the reference above when investigating the failure.</p>
     {% endif %}
-  </div>
+  </section>
+
+  <section class="card">
+    <h2>Row processing</h2>
+    {% if processing_job %}
+      <dl>
+        <dt>Processing status</dt><dd class="status">{{ processing_job.get_status_display }}</dd>
+        <dt>Attempts</dt><dd>{{ processing_job.attempt_count }} of {{ processing_job.max_attempts }}</dd>
+        <dt>Total rows</dt><dd>{{ processing_job.total_rows }}</dd>
+        <dt>Valid rows</dt><dd>{{ processing_job.valid_rows }}</dd>
+        <dt>Invalid rows</dt><dd>{{ processing_job.invalid_rows }}</dd>
+        <dt>Validation issues</dt><dd>{{ processing_job.issue_count }}</dd>
+        <dt>Inserted sales rows</dt><dd>{{ processing_job.inserted_rows }}</dd>
+        <dt>Reused sales rows</dt><dd>{{ processing_job.reused_rows }}</dd>
+        {% if processing_job.finished_at %}
+          <dt>Finished</dt><dd>{{ processing_job.finished_at }}</dd>
+        {% endif %}
+      </dl>
+      {% if processing_job.status == "waiting_file" %}
+        <p>Processing will be queued after storage confirms the original file.</p>
+      {% elif processing_job.status == "queued" %}
+        <p>The file is ready and waiting for a processing worker.</p>
+      {% elif processing_job.status == "processing" %}
+        <p>A worker is validating the file and preparing its rows.</p>
+      {% elif processing_job.status == "retry_wait" %}
+        <p>A temporary processing problem occurred. The job will be retried.</p>
+      {% elif processing_job.status == "published" %}
+        <p>Every row passed validation. New and previously applied rows are reflected in the counts above.</p>
+      {% elif processing_job.status == "rejected" %}
+        <p>The file contains validation issues, so none of its sales rows were published.</p>
+      {% elif processing_job.status == "failed" %}
+        <p>Processing stopped after a permanent error or exhausted retries.</p>
+      {% elif processing_job.status == "cancelled" %}
+        <p>Processing was cancelled because the original file was not available.</p>
+      {% endif %}
+      {% if processing_job.last_error_message %}
+        <p><strong>Latest processing error:</strong> {{ processing_job.last_error_message }}</p>
+      {% endif %}
+    {% else %}
+      <p>Row processing has not been scheduled for this import.</p>
+    {% endif %}
+
+    {% if sales_import.file_format == "xlsx" %}
+      <p>XLSX row processing is not available yet. After storage succeeds, this import waits for the Excel parser and creates no sales facts.</p>
+    {% endif %}
+  </section>
+
+  {% if latest_attempt %}
+    <section class="card">
+      <h2>Latest processing attempt</h2>
+      <dl>
+        <dt>Attempt</dt><dd>{{ latest_attempt.attempt_number }}</dd>
+        <dt>Phase</dt><dd class="status">{{ latest_attempt.get_phase_display }}</dd>
+        <dt>Outcome</dt><dd class="status">{{ latest_attempt.get_outcome_display }}</dd>
+        <dt>Started</dt><dd>{{ latest_attempt.started_at }}</dd>
+        {% if latest_attempt.finished_at %}
+          <dt>Finished</dt><dd>{{ latest_attempt.finished_at }}</dd>
+        {% endif %}
+      </dl>
+
+      <h3>Latest persisted issues</h3>
+      {% if issue_page.object_list %}
+        <table>
+          <thead>
+            <tr><th>Location</th><th>Phase</th><th>Column</th><th>Code</th><th>Message</th></tr>
+          </thead>
+          <tbody>
+            {% for issue in issue_page.object_list %}
+              <tr>
+                <td>{% if issue.row_number %}Row {{ issue.row_number }}{% else %}File{% endif %}</td>
+                <td>{{ issue.get_phase_display }}</td>
+                <td>{{ issue.column }}</td>
+                <td><code>{{ issue.code }}</code></td>
+                <td>{{ issue.message }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        {% if issue_page.has_other_pages %}
+          <nav aria-label="Validation issue pages">
+            {% if issue_page.has_previous %}
+              <a href="?issues_page={{ issue_page.previous_page_number }}">Previous issues</a>
+            {% endif %}
+            <span>Issue page {{ issue_page.number }} of {{ issue_page.paginator.num_pages }}</span>
+            {% if issue_page.has_next %}
+              <a href="?issues_page={{ issue_page.next_page_number }}">Next issues</a>
+            {% endif %}
+          </nav>
+        {% endif %}
+      {% else %}
+        <p>No validation issues were persisted for this attempt.</p>
+      {% endif %}
+    </section>
+  {% endif %}
 {% endblock %}

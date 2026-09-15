@@ -8,7 +8,17 @@
   <div class="card">
     {% if page.object_list %}
       <table>
-        <thead><tr><th>File</th><th>Source</th><th>Contract</th><th>Status</th><th>Submitted</th><th>Uploader</th></tr></thead>
+        <thead>
+          <tr>
+            <th>File</th>
+            <th>Source</th>
+            <th>Contract</th>
+            <th>Intake status</th>
+            <th>Processing status</th>
+            <th>Submitted</th>
+            <th>Uploader</th>
+          </tr>
+        </thead>
         <tbody>
           {% for sales_import in page.object_list %}
             <tr>
@@ -16,6 +26,13 @@
               <td>{{ sales_import.source_system }}</td>
               <td>{{ sales_import.get_row_contract_display }}</td>
               <td class="status">{{ sales_import.get_status_display }}</td>
+              <td class="status">
+                {% if sales_import.processing_job %}
+                  {{ sales_import.processing_job.get_status_display }}
+                {% else %}
+                  Not scheduled
+                {% endif %}
+              </td>
               <td>{{ sales_import.created_at }}</td>
               <td>{{ sales_import.uploaded_by.email }}</td>
             </tr>

@@ -13,8 +13,9 @@ Use Django, PostgreSQL, background Python workers, and Power BI.
 
 Start with one modular application and separately running workers. A separate
 React/Next.js frontend or FastAPI service is not part of the agreed V1 stack.
-The worker framework, durable queue, hosting, and Power BI integration method
-remain to be selected.
+Sales imports use a PostgreSQL-backed durable queue with leased Python workers.
+The deployment runtime, hosting, and Power BI integration method remain to be
+selected.
 
 The initial AWS staging region is `ap-south-1`. The existing AWS account may be
 used for staging and the initial deployment while the project is unfunded, but
@@ -95,7 +96,7 @@ before database-backed validation and insertion.
 3. Hosting, identity provider, and Power BI access/licensing approach.
 4. Future data-contract versions, non-sales record grains and keys, KPI
    definitions, and the sales correction/void workflow.
-5. Worker/queue implementation and measurable availability/recovery targets.
+5. Measurable worker availability and recovery targets.
 
 Capacity targets must be established before making performance and concurrency
 claims.
