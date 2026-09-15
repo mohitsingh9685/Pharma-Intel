@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+
+{% block title %}Sales import {{ sales_import.pk }} · Pharma Intel{% endblock %}
+
+{% block content %}
+  <h1>Sales import</h1>
+  <div class="card">
+    <dl>
+      <dt>Reference</dt><dd>{{ sales_import.pk }}</dd>
+      <dt>File</dt><dd>{{ sales_import.original_filename }}</dd>
+      <dt>Source system</dt><dd>{{ sales_import.source_system }}</dd>
+      <dt>Format</dt><dd>{{ sales_import.get_file_format_display }}</dd>
+      <dt>Row contract</dt><dd>{{ sales_import.get_row_contract_display }}</dd>
+      <dt>Size</dt><dd>{{ sales_import.size_bytes|filesizeformat }}</dd>
+      <dt>Status</dt><dd class="status">{{ sales_import.get_status_display }}</dd>
+      <dt>Uploader</dt><dd>{{ sales_import.uploaded_by.email }}</dd>
+      <dt>Submitted</dt><dd>{{ sales_import.created_at }}</dd>
+    </dl>
+    {% if sales_import.status == "received" %}
+      <p>The original file is stored. Row validation has not started yet.</p>
+    {% elif sales_import.status == "receiving" %}
+      <p>The upload is awaiting storage confirmation.</p>
+    {% else %}
+      <p>Storage failed. Use the reference above when investigating the failure.</p>
+    {% endif %}
+  </div>
+{% endblock %}

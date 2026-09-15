@@ -7,10 +7,12 @@ Django, PostgreSQL, background Python workers, and Power BI.
 
 The repository contains the Django/PostgreSQL foundation, email-based users,
 master data with effective-dated relationships, a reporting Calendar dimension,
-and immutable source-line Sales facts. Django 6.1.1, PostgreSQL 18.6, and
-psycopg 3.3.5 are verified locally. Imports, analytics, workers, dashboards,
-deployment, and measurable capacity targets remain future milestones, so this
-is not yet a production deployment.
+immutable source-line Sales facts, and the administrator-facing sales-file
+intake. The versioned `sales_rows_v1` contract, streaming CSV value parser, and
+deterministic local demo data are also implemented. Django 6.1.1, PostgreSQL
+18.6, and psycopg 3.3.5 are verified locally. Background ingestion, XLSX row
+parsing, analytics, workers, dashboards, deployment, and measurable capacity
+targets remain future milestones, so this is not yet a production deployment.
 
 See [the architecture decisions](docs/architecture-decisions.md) for the agreed
 scope and open questions, including company isolation and expected capacity.
@@ -90,6 +92,19 @@ Container health reports server readiness. Run `python scripts/check_database.py
 to establish that Django can authenticate and use its database. Use
 `docker compose config --quiet` to validate Compose without printing passwords.
 
+## Sales contract demo
+
+The following development-only command creates the local master data and dates
+needed by the deterministic sales sample:
+
+```bash
+.venv/bin/python manage.py prepare_sales_demo
+```
+
+It creates or verifies `samples/sales/sales_rows_v1_demo.csv`. Submit that file
+through the sales-import page with source system `DEMO-ERP`. This exercises the
+original-file intake; background row ingestion is not connected yet.
+
 ## File connections
 
 | File | Purpose |
@@ -107,7 +122,14 @@ to establish that Django can authenticate and use its database. Use
 | `accounts/` | Email-based users, roles, forms, Admin, and tests |
 | `master_data/` | Commercial identities and effective-dated relationships |
 | `business_data/` | Reporting Calendar and immutable source-line Sales facts |
+| `sales_imports/` | Original-file intake, the V1 row contract, CSV validation, S3 storage, audit, and recovery |
+| `sales_imports/contracts.py` | Exact `sales_rows_v1` columns and database-independent CSV row validation |
+| `sales_imports/synthetic.py` | Deterministic V1 demonstration rows and CSV bytes |
+| `sales_imports/management/commands/prepare_sales_demo.py` | Safe local master-data and sample-file preparation |
+| `samples/sales/sales_rows_v1_demo.csv` | Canonical ten-row demonstration file |
 | `docs/business-data-foundation.md` | Calendar population and Sales data rules |
+| `docs/sales-import-intake.md` | Sales-file intake flow, safeguards, and recovery behavior |
+| `docs/decisions/0004-sales-file-row-contract.md` | Versioned Sales row schema and atomic import decision |
 | `.env.example` | Shareable example of the required local configuration |
 | `AGENTS.md` | Learning workflow and engineering standards |
 

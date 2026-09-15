@@ -48,6 +48,15 @@ and immutable source-line Sales facts. Its grain, duplicate key, signed measure
 rules, and historical attribution are recorded in
 `docs/decisions/0003-sales-transaction-grain.md`.
 
+The first accepted file-row contract is `sales_rows_v1`. It maps one CSV row to
+the existing source-line Sales grain through stable source, master-data, date,
+measure, and currency fields. Its exact columns and validation rules are
+documented in `docs/sales-import-intake.md`; its versioning, retry, and atomic
+publish decisions are recorded in
+`docs/decisions/0004-sales-file-row-contract.md`. The contract parser is
+independent of PostgreSQL so a future background worker can use the same rules
+before database-backed validation and insertion.
+
 ## Requirements retained from the project plan
 
 - Two roles: Admin and Business User, with multiple users in each role.
@@ -84,9 +93,8 @@ rules, and historical attribution are recorded in
 1. Expected simultaneous users, data volume, upload size, and upload frequency.
 2. Required reporting freshness and acceptable refresh duration.
 3. Hosting, identity provider, and Power BI access/licensing approach.
-4. Remaining data contracts: non-sales record grains and keys, KPI definitions,
-   the sales correction/void workflow, and behavior when an upload contains
-   invalid rows.
+4. Future data-contract versions, non-sales record grains and keys, KPI
+   definitions, and the sales correction/void workflow.
 5. Worker/queue implementation and measurable availability/recovery targets.
 
 Capacity targets must be established before making performance and concurrency

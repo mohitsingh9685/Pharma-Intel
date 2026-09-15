@@ -65,8 +65,9 @@ avoid missing dates in charts, comparisons, and time-intelligence calculations.
   rather than "unknown current assignment."
 - Deactivating master data does not remove historical sales, while deleting a
   referenced record is rejected.
-- Import batch/file/row lineage, authorized correction or void records, and the
-  review workflow for invalid rows remain separate design decisions.
+- File-level intake lineage is implemented. Batch/row lineage, authorized
+  correction or void records, and the review workflow for invalid rows remain
+  separate design decisions.
 - Django Admin keeps Sales read-only until those ingestion and correction paths
   exist, so a manual typo cannot create an unrepairable production fact.
 - Power BI uses `CalendarDate` as its date dimension and aggregates the

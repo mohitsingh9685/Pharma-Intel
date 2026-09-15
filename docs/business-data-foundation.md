@@ -115,10 +115,15 @@ lineage and handle mistakes safely. This prevents a routine UI action from
 changing a previously reported total without leaving evidence.
 
 The current foundation establishes the fact grain, references, validations,
-and duplicate guard. The following workflows still require their own design and
-are intentionally deferred:
+and duplicate guard. The original-file intake now stores private S3 originals
+and immutable file-level audit metadata. The versioned `sales_rows_v1` contract
+and streaming CSV parser define the exact columns and perform bounded syntax and
+value validation without database I/O. They do not yet resolve codes or insert
+facts. The following workflows still require their own design and are
+intentionally deferred:
 
-- staged CSV/Excel import with file, batch, and source-row lineage;
+- background ingestion orchestration and `.xlsx` row parsing;
+- database-backed master-data validation, staging, and source-row lineage;
 - validation result review and retry handling;
 - authorized correction and void/reversal records;
 - currency conversion and exchange-rate history.

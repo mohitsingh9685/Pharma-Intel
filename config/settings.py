@@ -53,6 +53,7 @@ INSTALLED_APPS = [
     "accounts.apps.AccountsConfig",
     "master_data.apps.MasterDataConfig",
     "business_data.apps.BusinessDataConfig",
+    "sales_imports.apps.SalesImportsConfig",
 ]
 
 AUTH_USER_MODEL = "accounts.User"
@@ -71,7 +72,7 @@ ROOT_URLCONF = "config.urls"
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
-        "DIRS": [],
+        "DIRS": [BASE_DIR / "templates"],
         "APP_DIRS": True,
         "OPTIONS": {
             "context_processors": [
@@ -150,3 +151,51 @@ USE_TZ = True
 STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+LOGIN_URL = "login"
+LOGIN_REDIRECT_URL = "home"
+LOGOUT_REDIRECT_URL = "login"
+
+
+def positive_integer_setting(name: str, *, default: int) -> int:
+    """Read a positive integer setting and reject unsafe values."""
+    raw_value = os.environ.get(name, str(default)).strip()
+    if not raw_value.isascii() or not raw_value.isdigit() or int(raw_value) < 1:
+        raise ImproperlyConfigured(f"{name} must be a positive integer.")
+    return int(raw_value)
+
+
+# This is an interim safety ceiling, not a measured production capacity target.
+SALES_IMPORT_MAX_UPLOAD_BYTES = positive_integer_setting(
+    "SALES_IMPORT_MAX_UPLOAD_BYTES",
+    default=25 * 1024 * 1024,
+)
+SALES_IMPORT_RECONCILE_AFTER_MINUTES = positive_integer_setting(
+    "SALES_IMPORT_RECONCILE_AFTER_MINUTES",
+    default=15,
+)
+SALES_IMPORT_MAX_ROWS = positive_integer_setting(
+    "SALES_IMPORT_MAX_ROWS",
+    default=250_000,
+)
+
+# Files over 1 MiB are spooled to disk instead of occupying web-worker memory.
+FILE_UPLOAD_MAX_MEMORY_SIZE = min(SALES_IMPORT_MAX_UPLOAD_BYTES, 1024 * 1024)
+# This endpoint accepts one original file. Reject extra multipart file parts
+# before Django spends disk and parsing work on fields the form will ignore.
+DATA_UPLOAD_MAX_NUMBER_FILES = 1
+FILE_UPLOAD_HANDLERS = [
+    "sales_imports.upload_handlers.BoundedFileUploadHandler",
+    "django.core.files.uploadhandler.MemoryFileUploadHandler",
+    "django.core.files.uploadhandler.TemporaryFileUploadHandler",
+]
+
+SALES_IMPORT_AWS_REGION = os.environ.get(
+    "SALES_IMPORT_AWS_REGION",
+    "ap-south-1",
+).strip()
+SALES_IMPORT_S3_BUCKET = os.environ.get("SALES_IMPORT_S3_BUCKET", "").strip()
+SALES_IMPORT_S3_KMS_KEY_ARN = os.environ.get(
+    "SALES_IMPORT_S3_KMS_KEY_ARN",
+    "",
+).strip()

@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block title %}Pharma Intel{% endblock %}</title>
+    <style>
+      :root { color-scheme: light dark; font-family: system-ui, sans-serif; }
+      body { margin: 0; background: #101418; color: #e9eef2; }
+      header { background: #173c4d; padding: 1rem 2rem; }
+      nav { display: flex; align-items: center; gap: 1rem; }
+      nav a, a { color: #8dd8ff; }
+      nav form { margin-left: auto; }
+      main { max-width: 72rem; margin: 0 auto; padding: 2rem; }
+      .card { background: #182026; border: 1px solid #33434c; border-radius: .5rem; padding: 1.25rem; }
+      .button, button { background: #16769c; color: white; border: 0; border-radius: .35rem; padding: .65rem 1rem; cursor: pointer; text-decoration: none; }
+      input { width: min(36rem, 100%); padding: .6rem; }
+      label { display: block; font-weight: 650; margin-top: 1rem; }
+      .helptext { color: #b7c4ca; display: block; margin-top: .3rem; }
+      .errorlist, .message.error { color: #ff9f9f; }
+      .message.success { color: #91e5a8; }
+      .message.info { color: #8dd8ff; }
+      .message.warning { color: #ffd37a; }
+      table { width: 100%; border-collapse: collapse; }
+      th, td { border-bottom: 1px solid #33434c; padding: .7rem; text-align: left; }
+      dl { display: grid; grid-template-columns: max-content 1fr; gap: .7rem 1.25rem; }
+      dt { font-weight: 650; }
+      .status { text-transform: capitalize; }
+    </style>
+  </head>
+  <body>
+    <header>
+      <nav>
+        <strong>Pharma Intel</strong>
+        {% if user.is_authenticated %}
+          {% if user.role == "admin" %}
+            <a href="{% url 'sales_imports:list' %}">Sales imports</a>
+            <a href="{% url 'sales_imports:create' %}">Upload</a>
+          {% endif %}
+          <form method="post" action="{% url 'logout' %}">
+            {% csrf_token %}
+            <button type="submit">Log out</button>
+          </form>
+        {% endif %}
+      </nav>
+    </header>
+    <main>
+      {% for message in messages %}
+        <p class="message {{ message.tags }}">{{ message }}</p>
+      {% endfor %}
+      {% block content %}{% endblock %}
+    </main>
+  </body>
+</html>

@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+
+{% block title %}Sales imports · Pharma Intel{% endblock %}
+
+{% block content %}
+  <h1>Sales imports</h1>
+  <p><a class="button" href="{% url 'sales_imports:create' %}">Upload sales file</a></p>
+  <div class="card">
+    {% if page.object_list %}
+      <table>
+        <thead><tr><th>File</th><th>Source</th><th>Contract</th><th>Status</th><th>Submitted</th><th>Uploader</th></tr></thead>
+        <tbody>
+          {% for sales_import in page.object_list %}
+            <tr>
+              <td><a href="{% url 'sales_imports:detail' sales_import.pk %}">{{ sales_import.original_filename }}</a></td>
+              <td>{{ sales_import.source_system }}</td>
+              <td>{{ sales_import.get_row_contract_display }}</td>
+              <td class="status">{{ sales_import.get_status_display }}</td>
+              <td>{{ sales_import.created_at }}</td>
+              <td>{{ sales_import.uploaded_by.email }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <p>No sales files have been submitted.</p>
+    {% endif %}
+  </div>
+  {% if page.has_other_pages %}
+    <nav aria-label="Sales import pages">
+      {% if page.has_previous %}
+        <a href="?page={{ page.previous_page_number }}">Previous</a>
+      {% endif %}
+      <span>Page {{ page.number }} of {{ page.paginator.num_pages }}</span>
+      {% if page.has_next %}
+        <a href="?page={{ page.next_page_number }}">Next</a>
+      {% endif %}
+    </nav>
+  {% endif %}
+{% endblock %}

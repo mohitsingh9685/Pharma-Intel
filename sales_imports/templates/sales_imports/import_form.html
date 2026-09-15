@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+
+{% block title %}Upload sales file · Pharma Intel{% endblock %}
+
+{% block content %}
+  <h1>Upload sales file</h1>
+  <div class="card">
+    <p>
+      The original file will be encrypted and retained under the Sales rows v1
+      contract. Background row validation is not enabled yet.
+    </p>
+    <form method="post" enctype="multipart/form-data">
+      {% csrf_token %}
+      {{ form.as_div }}
+      <p><button type="submit">Store original file</button></p>
+    </form>
+  </div>
+{% endblock %}

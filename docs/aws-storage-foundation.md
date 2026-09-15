@@ -2,19 +2,24 @@
 
 ## Purpose
 
-Original CSV and Excel uploads will be stored as private objects in Amazon S3.
-PostgreSQL will store import jobs, validation errors, row lineage, and accepted
-business records. Keeping the original file lets an administrator audit or
-reprocess an import without treating a large binary file as a database row.
+Original CSV and Excel uploads are stored as private objects in Amazon S3.
+PostgreSQL stores their immutable intake records and will store validation
+errors, row lineage, and accepted business records as ingestion is added.
+Keeping the original file lets an administrator audit or reprocess an import
+without treating a large binary file as a database row.
 
-This milestone prepares staging infrastructure in `ap-south-1`. It does not yet
-connect Django to S3 or upload files.
+This milestone prepares staging infrastructure in `ap-south-1`. The Django
+sales-import intake now implements the S3 client contract; deployment still
+needs a dedicated application/worker runtime role after the hosting target is
+selected.
 
 The Terraform-state and sales-import stacks were applied successfully on
 2026-09-14. Bootstrap state now uses the encrypted S3 backend, and a subsequent
 plan found no differences between the bootstrap configuration and AWS. Django
-runtime access remains intentionally unconfigured until the import workflow
-defines its exact object operations.
+runtime access remains intentionally unconfigured until the deployment target
+is selected. The intake now requires narrowly scoped `PutObject` and versioned
+`HeadObject` access, including checksum retrieval, plus the matching KMS data-key,
+encrypt, and decrypt operations for this bucket only.
 
 ## Access design
 
@@ -63,9 +68,16 @@ multipart uploads after seven days. Clients must send the KMS encryption headers
 when uploading. The buckets do not delete objects or older versions automatically
 because the business and legal retention period has not been decided.
 
+Each original object records the immutable import identifier, SHA-256 digest,
+`sales_v1` intake-envelope version, and `sales_rows_v1` row-contract version in
+S3 metadata. Reconciliation verifies those values before an uncertain upload is
+accepted as received. S3 retains the bytes; contract parsing and structured row
+state belong to the application and PostgreSQL.
+
 Terraform state and sales uploads use separate encryption keys. Access to state
 therefore does not grant access to uploaded business data. A later application
-runtime role will receive narrow upload/download permissions for the sales bucket.
+runtime role will receive narrow upload and verification permissions for the
+sales bucket. The Terraform identity is not used by Django.
 
 ## State bootstrap
 
